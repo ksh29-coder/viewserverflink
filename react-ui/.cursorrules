@@ -1,0 +1,274 @@
+# React UI Module - Cursor Rules
+
+## Module Overview
+This is the **React UI** module - a modern React 18 frontend that provides real-time visualization of financial portfolio data. It connects to the view-server via WebSocket for live updates and displays dynamic, user-configurable portfolio views.
+
+## Architecture Context
+- **Purpose**: Real-time financial data visualization and portfolio management UI
+- **Input**: WebSocket connections to view-server for live data streams
+- **Technology**: React 18 + Vite + AG Grid + WebSocket client
+- **Views**: Portfolio View, Cash-Only View, PID Carve-Out View
+- **Communication**: WebSocket for real-time updates, REST API for configuration
+
+## Directory Structure
+```
+react-ui/src/
+├── components/          # React components
+│   ├── PortfolioGrid.jsx       # Main portfolio data grid
+│   ├── CashOnlyView.jsx        # Cash-only portfolio view
+│   ├── PIDCarveOutView.jsx     # PID carve-out specific view
+│   ├── ViewSelector.jsx        # View type selector
+│   ├── ConnectionStatus.jsx    # WebSocket connection indicator
+│   └── common/                 # Shared UI components
+│       ├── DataGrid.jsx        # Generic AG Grid wrapper
+│       ├── LoadingSpinner.jsx  # Loading indicators
+│       └── ErrorBoundary.jsx   # Error handling
+├── websocket/          # WebSocket client management
+│   ├── WebSocketClient.js      # Main WebSocket connection logic
+│   ├── MessageHandler.js       # WebSocket message processing
+│   └── ConnectionManager.js    # Connection state management
+├── services/           # API and data services
+│   ├── ViewConfigService.js    # REST API for view configuration
+│   ├── DataTransformService.js # Data transformation utilities
+│   └── CacheService.js         # Client-side data caching
+├── hooks/              # Custom React hooks
+│   ├── useWebSocket.js         # WebSocket connection hook
+│   ├── useViewData.js          # View data management hook
+│   └── useGridConfig.js        # AG Grid configuration hook
+├── utils/              # Utility functions
+│   ├── formatters.js           # Data formatting utilities
+│   ├── validators.js           # Data validation
+│   └── constants.js            # Application constants
+├── styles/             # CSS and styling
+│   ├── global.css              # Global styles
+│   ├── components.css          # Component-specific styles
+│   └── grid-themes.css         # AG Grid custom themes
+├── App.jsx             # Main application component
+└── main.jsx           # Vite entry point
+```
+
+## Technology Stack & Dependencies
+
+### Core Framework
+- **React 18.2.0**: Modern React with concurrent features
+- **Vite 5.0.0**: Fast build tool and dev server
+- **React Router DOM 6.20.0**: Client-side routing
+
+### Data Visualization
+- **AG Grid Community 31.0.0**: High-performance data grid
+- **AG Grid React 31.0.0**: React wrapper for AG Grid
+
+### Communication
+- **WebSocket (native)**: Real-time data streaming
+- **Axios 1.6.0**: HTTP client for REST API calls
+
+### Development Tools
+- **ESLint**: Code linting and standards
+- **TypeScript support**: Via dev dependencies
+
+## WebSocket Integration Patterns
+
+### Connection Management
+```javascript
+// useWebSocket.js
+export const useWebSocket = (viewType) => {
+  const [socket, setSocket] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('DISCONNECTED');
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const ws = new WebSocket(`ws://localhost:8080/ws/${viewType}`);
+    // Connection handling logic
+  }, [viewType]);
+};
+```
+
+### Real-time Data Updates
+```javascript
+// MessageHandler.js  
+export const handleWebSocketMessage = (message, updateGridData) => {
+  const { type, payload } = JSON.parse(message.data);
+  
+  switch (type) {
+    case 'PORTFOLIO_UPDATE':
+      updateGridData(payload);
+      break;
+    case 'POSITION_CHANGE':
+      updatePosition(payload);
+      break;
+  }
+};
+```
+
+## View Types & WebSocket Endpoints
+
+### Portfolio View (`/ws/portfolio`)
+- **Purpose**: Complete portfolio holdings and positions
+- **Data**: Enriched holdings with prices, P&L, allocations
+- **Updates**: Real-time position changes, price updates
+
+### Cash-Only View (`/ws/cash-only`)  
+- **Purpose**: Cash positions and cash movements only
+- **Data**: Cash balances by currency, cash flows
+- **Updates**: Real-time cash transactions
+
+### PID Carve-Out View (`/ws/pid-carve-out`)
+- **Purpose**: Specific portfolio subset based on PID criteria
+- **Data**: Filtered holdings based on selection criteria
+- **Updates**: Dynamic filtering and real-time updates
+
+## AG Grid Configuration
+
+### Column Definitions
+```javascript
+// Common portfolio grid columns
+export const portfolioColumns = [
+  { field: 'accountId', headerName: 'Account', width: 120 },
+  { field: 'instrumentName', headerName: 'Instrument', width: 200 },
+  { field: 'position', headerName: 'Position', type: 'numericColumn' },
+  { field: 'marketValue', headerName: 'Market Value', valueFormatter: currencyFormatter },
+  { field: 'unrealizedPnL', headerName: 'Unrealized P&L', cellClass: pnlCellClass }
+];
+```
+
+### Real-time Updates
+```javascript
+// Grid data update patterns
+const updateGridData = useCallback((newData) => {
+  setRowData(prevData => {
+    // Merge new data with existing data
+    // Handle incremental updates efficiently
+  });
+}, []);
+```
+
+## Component Patterns
+
+### View Component Template
+```jsx
+export const PortfolioView = () => {
+  const { data, connectionStatus } = useWebSocket('portfolio');
+  const { gridConfig } = useGridConfig('portfolio');
+  
+  return (
+    <div className="portfolio-view">
+      <ConnectionStatus status={connectionStatus} />
+      <DataGrid 
+        rowData={data}
+        columnDefs={gridConfig.columns}
+        onGridReady={onGridReady}
+      />
+    </div>
+  );
+};
+```
+
+### Data Grid Wrapper
+```jsx
+export const DataGrid = ({ rowData, columnDefs, ...props }) => {
+  return (
+    <div className="ag-theme-alpine" style={{ height: '600px' }}>
+      <AgGridReact
+        rowData={rowData}
+        columnDefs={columnDefs}
+        enableRangeSelection={true}
+        enableCellChangeFlash={true}
+        {...props}
+      />
+    </div>
+  );
+};
+```
+
+## Styling Guidelines
+
+### CSS Organization
+- **Global styles**: Layout, typography, colors
+- **Component styles**: Component-specific styling
+- **Grid themes**: Custom AG Grid themes for financial data
+
+### Design Principles
+- **Responsive**: Mobile-friendly design
+- **Accessibility**: ARIA labels and keyboard navigation  
+- **Performance**: Efficient re-rendering and virtual scrolling
+- **Financial UI**: Professional appearance suitable for financial data
+
+## Development Guidelines
+
+### Performance Optimization
+1. **React.memo**: Memoize expensive components
+2. **useCallback/useMemo**: Optimize expensive calculations
+3. **Virtual scrolling**: Use AG Grid's built-in virtualization
+4. **Debouncing**: Debounce user inputs and API calls
+
+### Error Handling
+1. **Error Boundaries**: Catch and handle React errors
+2. **WebSocket reconnection**: Automatic reconnection logic
+3. **Graceful degradation**: Handle offline scenarios
+4. **User feedback**: Clear error messages and loading states
+
+### Testing Strategy
+1. **Component tests**: React Testing Library
+2. **Integration tests**: WebSocket mock testing
+3. **E2E tests**: Cypress for full user flows
+4. **Performance tests**: Lighthouse and Core Web Vitals
+
+## Configuration
+
+### Vite Configuration
+```javascript
+// vite.config.js
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8080',
+      '/ws': { target: 'ws://localhost:8080', ws: true }
+    }
+  }
+});
+```
+
+### Environment Variables
+```javascript
+// .env files for different environments
+VITE_API_BASE_URL=http://localhost:8080
+VITE_WS_BASE_URL=ws://localhost:8080
+VITE_ENABLE_MOCK_DATA=false
+```
+
+## Common Patterns
+
+### Data Formatting
+```javascript
+// formatters.js
+export const currencyFormatter = (params) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(params.value);
+};
+
+export const percentageFormatter = (params) => {
+  return `${(params.value * 100).toFixed(2)}%`;
+};
+```
+
+### State Management
+```javascript
+// Use React Context for global state
+export const ViewContext = createContext();
+
+export const ViewProvider = ({ children }) => {
+  const [currentView, setCurrentView] = useState('portfolio');
+  const [viewConfig, setViewConfig] = useState({});
+  
+  return (
+    <ViewContext.Provider value={{ currentView, viewConfig }}>
+      {children}
+    </ViewContext.Provider>
+  );
+};
+```
+
+Focus on building a responsive, high-performance financial data visualization interface with excellent real-time capabilities and user experience. 

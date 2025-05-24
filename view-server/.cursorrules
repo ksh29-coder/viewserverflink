@@ -1,0 +1,143 @@
+# View Server Module - Cursor Rules
+
+## Module Overview
+This is the **View Server** module of a 4-layer materialized view system for real-time financial data processing. It combines:
+- **Aggregation Layer**: Apache Flink jobs for complex stream processing
+- **Computation Layer**: Kafka Streams for business logic and view calculations
+- **Client Views Layer**: WebSocket endpoints for real-time React UI updates
+
+## Architecture Context
+- **Input**: Consumes `base.*` Kafka topics from mock-data-generator
+- **Processing**: Flink jobs → `aggregation.*` topics → Kafka Streams → materialized views
+- **Output**: Real-time WebSocket updates to React UI clients
+- **Technologies**: Spring Boot + Flink + Kafka Streams + WebSocket + Redis
+
+## Directory Structure
+```
+view-server/src/main/java/com/viewserver/
+├── aggregation/          # LAYER 2: Flink jobs and aggregation models
+│   ├── model/           # Aggregation result models (EnrichedHolding, MarketValueData, etc.)
+│   ├── flink/           # Flink streaming jobs and configurations
+│   │   ├── jobs/        # Main Flink job classes
+│   │   ├── functions/   # Flink transformation functions
+│   │   └── config/      # Flink configuration
+│   └── kafka/           # Kafka producers for aggregation output topics
+├── computation/          # LAYER 3: Kafka Streams business logic
+│   ├── model/           # View models (PortfolioView, CashOnlyView, etc.)
+│   ├── streams/         # Kafka Streams topology and processors
+│   │   ├── topology/    # Stream topology definitions
+│   │   ├── processors/  # Custom stream processors
+│   │   └── state/       # State store management
+│   └── business/        # Business logic modules
+│       ├── portfolio/   # Portfolio calculations
+│       ├── attribution/ # Attribution analysis
+│       ├── risk/        # Risk calculations
+│       └── performance/ # Performance metrics
+├── websocket/           # LAYER 4: WebSocket endpoints
+│   ├── handlers/        # WebSocket message handlers
+│   ├── config/          # WebSocket configuration
+│   └── sessions/        # Session management
+├── rest/                # REST API for view configuration
+├── cache/               # Redis integration for caching
+└── ViewServerApplication.java # Main Spring Boot application
+```
+
+## Technology Stack & Dependencies
+- **Spring Boot 3.2.0**: Application framework
+- **Apache Flink 1.18.0**: Stream processing for aggregation layer
+- **Kafka Streams**: Business logic and view computations  
+- **Spring WebSocket**: Real-time client communication
+- **Spring Data Redis**: Caching and session state
+- **Jackson**: JSON serialization
+- **Lombok**: Reduce boilerplate code
+
+## Data Flow Patterns
+
+### Flink Jobs (Aggregation Layer)
+- Consume from `base.*` topics (account, instrument, sod-holding, price, intraday-cash, order-events)
+- Perform complex joins and windowed aggregations
+- Produce to `aggregation.*` topics (enriched-holdings, market-values, account-cash-summary)
+
+### Kafka Streams (Computation Layer)  
+- Consume from `aggregation.*` topics
+- Apply business logic and view-specific calculations
+- Update materialized views and state stores
+- Trigger WebSocket updates
+
+### WebSocket Layer
+- Listen to materialized view changes
+- Push real-time updates to React UI clients
+- Handle client subscriptions and view configurations
+
+## Coding Conventions
+
+### Naming Patterns
+- **Flink Jobs**: `*Job.java` (e.g., `HoldingsPricesJoinJob.java`)
+- **Kafka Streams**: `*Topology.java`, `*Processor.java`
+- **Models**: Clear domain names (e.g., `EnrichedHolding`, `PortfolioView`)
+- **WebSocket**: `*Handler.java`, `*Config.java`
+
+### Configuration
+- Use `@ConfigurationProperties` for external configuration
+- Environment-specific properties in `application-{env}.yml`
+- Kafka and Flink configurations in separate config classes
+
+### Error Handling
+- Use proper exception handling in stream processing
+- Implement dead letter topics for failed messages  
+- WebSocket connection management and reconnection logic
+
+## Key Integration Points
+
+### With data-layer module:
+- Import base data models (Account, Instrument, SODHolding, etc.)
+- Use shared Kafka key builders and serializers
+
+### With React UI:
+- WebSocket endpoints: `/ws/portfolio`, `/ws/cash-only`, `/ws/pid-carve-out`
+- REST endpoints: `/api/views/*` for configuration
+
+### With Infrastructure:
+- Kafka brokers: `localhost:9092`
+- Redis: `localhost:6379`
+- Flink Web UI: embedded or separate
+
+## Development Guidelines
+
+1. **Flink Jobs**: Use DataStream API, implement proper checkpointing
+2. **Kafka Streams**: Use Topology API, handle rebalancing gracefully  
+3. **WebSocket**: Implement proper session management and error handling
+4. **Testing**: Use TestContainers for integration tests with Kafka/Redis
+5. **Monitoring**: Add metrics and health checks for all components
+
+## Common Patterns
+
+### Flink Job Template:
+```java
+@Component
+public class SampleJob {
+    public void execute(StreamExecutionEnvironment env) {
+        // DataStream processing logic
+    }
+}
+```
+
+### Kafka Streams Topology:
+```java  
+@Component
+public class SampleTopology {
+    public Topology buildTopology() {
+        // Stream topology definition
+    }
+}
+```
+
+### WebSocket Handler:
+```java
+@Component
+public class SampleWebSocketHandler extends TextWebSocketHandler {
+    // WebSocket message handling
+}
+```
+
+Focus on real-time performance, proper resource management, and maintainable stream processing code. 

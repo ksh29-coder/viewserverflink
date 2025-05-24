@@ -1,0 +1,189 @@
+# Mock Data Generator Module - Cursor Rules
+
+## Module Overview
+This is the **Mock Data Generator** module - a standalone Spring Boot service that generates realistic financial data for testing the 4-layer materialized view system. It publishes data to Kafka topics consumed by the view-server.
+
+## Architecture Context
+- **Purpose**: Generate realistic financial market data for POC testing
+- **Output**: Publishes to `base.*` Kafka topics (account, instrument, sod-holding, price, intraday-cash, order-events)  
+- **Scheduling**: Handles both SOD (Start of Day) batch events and continuous intraday updates
+- **Dependencies**: Uses `data-layer` module for base data models
+
+## Directory Structure
+```
+mock-data-generator/src/main/java/com/viewserver/generator/
+├── static/              # Static data generators (run once)
+│   ├── AccountGenerator.java      # Generate 100 accounts with equity strategy names
+│   └── InstrumentGenerator.java   # Generate 500 instruments + currencies
+├── sod/                # SOD (Start of Day) generators (daily trigger)
+│   └── SODHoldingGenerator.java   # Generate ~500 holdings per account daily
+├── intraday/           # Intraday generators (continuous)
+│   ├── PriceGenerator.java        # Real-time price movements
+│   ├── IntradayCashGenerator.java # Cash movements (USD, GBP, EUR)
+│   └── OrderGenerator.java        # Order creation and fill events
+├── orchestrator/        # Generation coordination
+│   ├── MockDataOrchestrator.java # Main orchestration logic
+│   └── SchedulingConfig.java     # Spring scheduling configuration
+├── config/             # Configuration classes
+└── MockDataGeneratorApplication.java # Main Spring Boot application
+```
+
+## Data Generation Patterns
+
+### Static Data (Generated Once on Startup)
+- **Accounts**: 100 accounts with realistic equity strategy names
+- **Instruments**: 500 equity instruments + cash currencies (USD, GBP, EUR, etc.)
+- **Frequency**: `@PostConstruct` - generated once when application starts
+
+### SOD Data (Generated Daily)
+- **SOD Holdings**: ~500 holdings per account with random instrument distribution
+- **Frequency**: `@Scheduled(cron = "0 0 9 * * ?")` - 9 AM daily (simulated)
+- **Pattern**: Batch generation triggered by SOD event
+
+### Intraday Data (Generated Continuously)
+- **Prices**: Random price movements for all instruments
+- **Cash Movements**: Random cash transactions per account/currency
+- **Orders**: Order lifecycle events (CREATE → PARTIAL_FILL → FILLED)
+- **Frequency**: `@Scheduled(fixedDelay = 1000)` - Every 1-5 seconds
+
+## Kafka Topics & Keys
+
+### Topic Configuration
+```
+base.account        → Key: accountId
+base.instrument     → Key: instrumentId (numeric)
+base.sod-holding    → Key: {date}#{instrumentId}#{accountId}  
+base.price          → Key: {instrumentId}#{date}
+base.intraday-cash  → Key: {date}#{instrumentId}#{accountId}
+base.order-events   → Key: orderId
+```
+
+## Technology Stack & Dependencies
+- **Spring Boot 3.2.0**: Application framework and scheduling
+- **Spring Kafka**: Kafka producers and topic management
+- **Apache Commons Lang**: Utility functions for data generation
+- **Jackson**: JSON serialization
+- **Lombok**: Reduce boilerplate code
+- **Data Layer Module**: Base data models (Account, Instrument, etc.)
+
+## Data Generation Guidelines
+
+### Realistic Data Patterns
+1. **Account Names**: Use realistic equity strategy names (e.g., "Global Growth Fund", "US Value Strategy")
+2. **Instruments**: Mix of real-sounding equity names with proper sectors/countries
+3. **Holdings**: Realistic position sizes and distributions
+4. **Prices**: Implement brownian motion or similar for realistic price movements
+5. **Orders**: Proper order lifecycle with realistic fill patterns
+
+### Volume Guidelines
+- **Accounts**: 100 total
+- **Instruments**: 500 equities + 10-20 currencies
+- **Holdings**: ~500 per account per day (50,000 total daily)
+- **Prices**: All instruments every 1-5 seconds
+- **Orders**: 10-50 per minute during market hours
+- **Cash**: 5-20 movements per account per hour
+
+## Coding Conventions
+
+### Generator Classes
+```java
+@Component
+public class SampleGenerator {
+    @Autowired
+    private KafkaTemplate<String, Object> kafkaTemplate;
+    
+    public void generateData() {
+        // Generation logic
+    }
+}
+```
+
+### Scheduling Patterns
+```java
+@Component
+@EnableScheduling
+public class SchedulingConfig {
+    
+    @Scheduled(cron = "0 0 9 * * ?")  // SOD events
+    public void generateSODData() { }
+    
+    @Scheduled(fixedDelay = 1000)     // Continuous intraday
+    public void generateIntradayData() { }
+}
+```
+
+### Data Consistency
+- Use consistent reference data (same accounts/instruments across all generators)
+- Maintain temporal consistency (SOD holdings → intraday price updates → order fills)
+- Ensure proper key distribution for Kafka partitioning
+
+## Configuration Properties
+
+### Application Configuration
+```yaml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+mock-data:
+  generation:
+    accounts: 100
+    instruments: 500
+    holdings-per-account: 500
+    price-update-interval: 1000ms
+    order-frequency: 30-per-minute
+```
+
+## Development Guidelines
+
+1. **Deterministic Seeds**: Use configurable random seeds for reproducible data
+2. **Performance**: Generate data efficiently, avoid blocking operations
+3. **Memory Management**: Stream large datasets, don't hold everything in memory
+4. **Error Handling**: Graceful degradation if Kafka is unavailable
+5. **Monitoring**: Add metrics for generation rates and Kafka publish success/failure
+
+## Common Patterns
+
+### Data Builder Pattern
+```java
+public class AccountDataBuilder {
+    public static Account buildAccount(String id, String strategyType) {
+        return Account.builder()
+            .accountId(id)
+            .accountName(generateStrategyName(strategyType))
+            .build();
+    }
+}
+```
+
+### Kafka Publishing
+```java
+@Service
+public class DataPublisher {
+    public void publishAccount(Account account) {
+        kafkaTemplate.send("base.account", account.getAccountId(), account);
+    }
+}
+```
+
+### Random Data Generation
+```java
+public class RandomDataUtils {
+    private static final Random RANDOM = new Random();
+    
+    public static BigDecimal randomPrice(BigDecimal basePrice) {
+        // Brownian motion price generation
+    }
+}
+```
+
+## Testing Approach
+- Unit tests for individual generators
+- Integration tests with embedded Kafka (TestContainers)
+- Performance tests for generation throughput
+- Data quality tests for realistic distributions
+
+Focus on generating high-quality, realistic financial data that properly exercises the downstream view-server processing capabilities. 
