@@ -1,32 +1,152 @@
-# View Server Performance POC
-
-A horizontally scalable **4-layer materialized view system** for real-time financial data processing. The system implements dynamic, user-configurable portfolio views with sub-50ms latency using Apache Flink for complex stream processing and Kafka Streams for user view computations.
+# View Server Flink - Performance POC
 
 ## Architecture Overview
 
-```
-Mock Data Generator → Kafka Topics → View Server (Flink + Kafka Streams + WebSocket) → React UI
+4-layer materialized view system for real-time financial data processing:
+
+1. **Raw Data Layer** - Mock data generator producing realistic financial events
+2. **View Server Layer** - Real-time caching and API layer (Redis + Kafka consumers)
+3. **Aggregation Layer** - Flink stream processing for real-time analytics
+4. **Materialized Views** - Kafka Streams for complex event processing
+
+## Data Generation Strategy
+
+### Static/Initial Data (Manual Trigger)
+- **Accounts & Instruments**: Reference data foundation
+- **SOD Holdings**: Start-of-day positions
+- **Trigger Method**: REST API endpoints (on-demand)
+
+### Dynamic Data (Continuous Streams)  
+- **Prices**: Real-time market data (every 5s)
+- **Orders**: New orders every 30s, updates every 10s
+- **Cash movements**: Every 2 minutes
+
+## Quick Start
+
+### 1. Start Infrastructure
+```bash
+# Start Docker if not running
+open -a Docker
+
+# Start Kafka, Zookeeper, and Redis
+docker-compose up -d
 ```
 
-### 4-Layer Architecture:
-1. **Base Data Layer**: Raw financial data models and Kafka producers
-2. **Aggregation Layer**: Complex stream processing using Apache Flink 
-3. **Computation Layer**: Business logic and view processing using Kafka Streams
-4. **Client Views Layer**: WebSocket-enabled React UI for real-time updates
+### 2. Start Mock Data Generator (Dynamic Data)
+```bash
+./scripts/start-dynamic-data.sh
+```
+
+### 3. Initialize Static Data & SOD Holdings
+```bash
+# Initialize everything at once
+curl -X POST http://localhost:8081/api/data-generation/initialize
+
+# Or separately:
+curl -X POST http://localhost:8081/api/data-generation/static
+curl -X POST http://localhost:8081/api/data-generation/sod-holdings
+```
+
+### 4. Start View Server
+```bash
+./scripts/start-view-server.sh
+```
+
+### 5. Test APIs
+```bash
+# Cache statistics
+curl http://localhost:8080/api/stats | jq .
+
+# Data endpoints
+curl http://localhost:8080/api/accounts | jq .
+curl http://localhost:8080/api/instruments | jq .
+curl http://localhost:8080/api/prices | jq .
+curl http://localhost:8080/api/orders | jq .
+```
+
+## Current Status
+
+✅ **Working Components**:
+- Mock Data Generator with manual triggers
+- Static data generation (accounts, instruments)
+- SOD holdings generation
+- Dynamic data streams (prices, orders, cash movements)
+- View Server with Redis caching
+- REST APIs for data inspection
+
+✅ **Working APIs**:
+- `GET /api/stats` - Cache statistics
+- `GET /api/accounts` - All accounts (5 records)
+- `GET /api/instruments` - All instruments (10 records)
+- `GET /api/prices` - All prices (7 records, real-time updates)
+- `GET /api/orders` - All orders (700+ records)
+
+⚠️ **Known Issues**:
+- `GET /api/holdings/{accountId}` - Returns 500 error
+- `GET /api/cash/{accountId}` - Returns 500 error
+
+## Data Generation Control
+
+### Mock Data Generator Endpoints (Port 8081)
+```bash
+# Check available endpoints
+curl http://localhost:8081/api/data-generation/status
+
+# Generate static data + SOD holdings
+curl -X POST http://localhost:8081/api/data-generation/initialize
+
+# Generate only static data (accounts + instruments)
+curl -X POST http://localhost:8081/api/data-generation/static
+
+# Generate only SOD holdings
+curl -X POST http://localhost:8081/api/data-generation/sod-holdings
+```
+
+## Management Scripts
+
+```bash
+# Start dynamic data generation only
+./scripts/start-dynamic-data.sh
+
+# Start view server
+./scripts/start-view-server.sh
+
+# Stop all services
+./scripts/stop-all.sh
+
+# Initialize complete data set (requires running mock generator)
+./scripts/initialize-data.sh
+```
+
+## Infrastructure
+
+- **Kafka**: localhost:9092
+- **Redis**: localhost:6379
+- **Mock Data Generator**: localhost:8081
+- **View Server**: localhost:8080
+
+## Next Steps
+
+1. Fix holdings and cash movements API endpoints
+2. Add Flink stream processing layer
+3. Implement Kafka Streams for complex event processing
+4. Add WebSocket endpoints for real-time data streaming
+5. Performance testing and optimization
 
 ## Project Structure
 
-```
-viewserverflink/
-├── shared-common/           # Common utilities and configurations
-├── data-layer/             # Base data models & Kafka producers
-├── mock-data-generator/    # Standalone data generation service
-├── view-server/            # Combined Flink + Kafka Streams + WebSocket service
-├── react-ui/              # React frontend
-├── integration-tests/      # End-to-end testing
-├── docker-compose.yml     # Infrastructure (Kafka, Redis)
-└── pom.xml               # Root Maven configuration
-```
+- `base-data/` - Shared data models and Kafka utilities
+- `mock-data-generator/` - Financial data simulation with REST control
+- `view-server/` - Redis caching + REST APIs  
+- `scripts/` - Startup and control scripts
+
+## Benefits of This Approach
+
+1. **Flexible Testing**: Initialize static data when needed
+2. **Realistic Simulation**: Continuous dynamic data streams
+3. **Clean Separation**: Static vs dynamic data generation
+4. **Easy Control**: REST APIs for data management
+5. **Production-Ready**: Scalable architecture for real systems
 
 ## Prerequisites
 
@@ -34,47 +154,6 @@ viewserverflink/
 - **Maven 3.8+**
 - **Docker & Docker Compose**
 - **Node.js 18+** (for React UI)
-
-## Quick Start
-
-### 1. Start Infrastructure
-```bash
-# Start Kafka, Redis, and monitoring tools
-docker-compose up -d
-
-# Optional: Start with monitoring
-docker-compose --profile monitoring up -d
-```
-
-### 2. Build Project
-```bash
-# Build all Maven modules
-mvn clean compile
-
-# Package applications
-mvn clean package
-```
-
-### 3. Start Services
-
-#### Mock Data Generator
-```bash
-cd mock-data-generator
-mvn spring-boot:run
-```
-
-#### View Server
-```bash
-cd view-server  
-mvn spring-boot:run
-```
-
-#### React UI
-```bash
-cd react-ui
-npm install
-npm run dev
-```
 
 ## Service Ports
 
@@ -153,14 +232,6 @@ npm run dev
 Access monitoring tools:
 - **Kafka UI**: http://localhost:8090 (lightweight option)
 - **Control Center**: http://localhost:9021 (full Confluent platform)
-
-## Next Steps
-
-1. Implement base data models in `data-layer`
-2. Create mock data generators
-3. Set up Flink aggregation jobs
-4. Build Kafka Streams computation layer
-5. Develop React UI components
 
 ## Contributing
 
