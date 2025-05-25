@@ -43,4 +43,6 @@ Thumbs.db
 
 # Application specific
 application-local.yml
-application-dev.yml 
+application-dev.yml
+
+# Note: system-config.yml is intentionally tracked as it's part of project documentation 

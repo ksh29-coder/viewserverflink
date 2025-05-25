@@ -1,0 +1,84 @@
+# Cursor Rules for View Server Flink Project
+# ==========================================
+
+## System Configuration
+- **ALWAYS** refer to `system-config.yml` for all service URLs, ports, and configurations
+- **NEVER** change configured URLs or ports without explicit user approval
+- All services must use their designated ports as defined in system-config.yml
+
+## Port Conflict Resolution Policy
+### CRITICAL RULE: When encountering URL or port conflicts:
+1. **NEVER** change the URL or port in configuration
+2. **ALWAYS** shutdown existing services first using `./scripts/stop-all.sh`
+3. Verify ports are free using `lsof -i :{port}`
+4. Only then start the required services
+5. If conflicts persist after shutdown, **CLARIFY WITH USER** before proceeding
+
+### Port Management Commands:
+- Check specific port: `lsof -i :{port}`
+- Check all system ports: `lsof -i :6379 && lsof -i :8080 && lsof -i :8081 && lsof -i :9092`
+- Kill process by PID: `kill -9 {pid}`
+- Stop all services: `./scripts/stop-all.sh`
+
+## Service Startup Order (MANDATORY):
+1. Infrastructure (Redis on 6379, Kafka on 9092)
+2. Mock Data Generator (port 8081)
+3. View Server (port 8080)
+4. Initialize static data via POST to 8081
+5. Verify dynamic data streams are working
+
+## Code Quality Standards:
+- Always add missing import statements for compilation errors
+- Use proper Java package declarations
+- Include all required Maven dependencies
+- Follow Spring Boot best practices
+- Add proper error handling and logging
+
+## Data Management:
+- Static data: Accounts (5), Instruments (7), SOD Holdings (35)
+- Dynamic data: Prices (every 5s), Orders (new every 30s, updates every 10s), Cash movements (every 2m)
+- Always verify data initialization completed before testing APIs
+
+## File Management:
+- Log files (*.log) are in .gitignore
+- Never commit temporary files, build artifacts, or IDE files
+- Use proper Maven project structure
+
+## Testing and Verification:
+- Always test service health endpoints after startup
+- Verify Redis cache has expected data volume (800+ keys)
+- Check Kafka topics are created and receiving messages
+- Test UI functionality at http://localhost:8080/
+
+## Error Handling:
+- For compilation errors: Check imports and dependencies first
+- For port conflicts: Follow shutdown-first policy
+- For Kafka consumer errors: Check message serialization
+- For 500 API errors: Check service logs and dependencies
+
+## Communication:
+- When encountering issues, provide specific error messages and logs
+- Always mention which services are running/stopped
+- Include port status when reporting conflicts
+- Reference system-config.yml sections when discussing configuration
+
+## Development Workflow:
+1. Check current service status before making changes
+2. Stop services cleanly before modifications
+3. Verify compilation before starting services
+4. Follow startup order strictly
+5. Test each service individually before integration testing
+
+## Forbidden Actions:
+- ❌ Changing ports/URLs to resolve conflicts
+- ❌ Starting services without checking port availability
+- ❌ Skipping service health checks
+- ❌ Modifying configuration without user approval
+- ❌ Ignoring compilation errors
+
+## Required Actions:
+- ✅ Always shutdown services before restart
+- ✅ Verify port availability before startup
+- ✅ Check service health after startup
+- ✅ Initialize data after mock generator starts
+- ✅ Reference system-config.yml for all configurations 

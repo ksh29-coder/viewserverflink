@@ -1,0 +1,210 @@
+# View Server System Configuration
+# ================================
+
+system:
+  name: "View Server Flink - Performance POC"
+  version: "1.0.0-SNAPSHOT"
+  
+# Infrastructure Services
+# =======================
+infrastructure:
+  redis:
+    host: "localhost"
+    port: 6379
+    url: "redis://localhost:6379"
+    description: "Cache storage for all data types"
+    health_check: "redis-cli ping"
+    
+  kafka:
+    host: "localhost"
+    port: 9092
+    url: "localhost:9092"
+    description: "Message broker for data streaming"
+    health_check: "kafka-topics --bootstrap-server localhost:9092 --list"
+    topics:
+      - "base.account"
+      - "base.instrument" 
+      - "base.price"
+      - "base.sod-holding"
+      - "base.order-events"
+      - "base.cash-movement"
+
+# Application Services
+# ===================
+services:
+  mock_data_generator:
+    name: "Mock Data Generator"
+    port: 8081
+    url: "http://localhost:8081"
+    description: "Generates static and dynamic test data"
+    main_class: "com.viewserver.mockdata.MockDataGeneratorApplication"
+    startup_command: "cd mock-data-generator && mvn spring-boot:run"
+    health_check: "curl -s http://localhost:8081/api/data-generation/status"
+    endpoints:
+      - path: "/api/data-generation/initialize"
+        method: "POST"
+        description: "Generate static data + SOD holdings"
+      - path: "/api/data-generation/static"
+        method: "POST" 
+        description: "Generate accounts + instruments only"
+      - path: "/api/data-generation/sod-holdings"
+        method: "POST"
+        description: "Generate SOD holdings only"
+      - path: "/api/data-generation/status"
+        method: "GET"
+        description: "Service status check"
+    data_generation:
+      static:
+        accounts: 5
+        instruments: 7
+      dynamic:
+        prices:
+          frequency: "5 seconds"
+          instruments: ["AAPL", "MSFT", "GOOGL", "JPM", "BAC", "NESN", "ASML"]
+        orders:
+          new_orders: "30 seconds"
+          updates: "10 seconds"
+        cash_movements:
+          frequency: "2 minutes"
+          
+  view_server:
+    name: "View Server"
+    port: 8080
+    url: "http://localhost:8080"
+    description: "Main API server and UI host"
+    main_class: "com.viewserver.viewserver.ViewServerApplication"
+    startup_command: "cd view-server && mvn spring-boot:run"
+    health_check: "curl -s http://localhost:8080/api/health"
+    ui_url: "http://localhost:8080/"
+    endpoints:
+      - path: "/api/health"
+        method: "GET"
+        description: "Health check"
+      - path: "/api/cache/stats"
+        method: "GET"
+        description: "Cache statistics"
+      - path: "/api/accounts"
+        method: "GET"
+        description: "Get all accounts"
+      - path: "/api/instruments"
+        method: "GET"
+        description: "Get all instruments"
+      - path: "/api/prices"
+        method: "GET"
+        description: "Get all current prices"
+      - path: "/api/holdings/{accountId}"
+        method: "GET"
+        description: "Get holdings for account"
+      - path: "/api/orders/{accountId}"
+        method: "GET"
+        description: "Get orders for account"
+      - path: "/api/cash/{accountId}"
+        method: "GET"
+        description: "Get cash movements for account"
+
+# Startup Procedures
+# ==================
+startup:
+  order:
+    1: "Infrastructure (Redis, Kafka)"
+    2: "Mock Data Generator (port 8081)"
+    3: "View Server (port 8080)"
+    4: "Initialize static data"
+    5: "Verify dynamic data streams"
+    
+  scripts:
+    infrastructure: "./scripts/start-infrastructure.sh"
+    mock_generator: "./scripts/start-dynamic-data.sh"
+    view_server: "./scripts/start-view-server.sh"
+    initialize_data: "./scripts/initialize-data.sh"
+    open_ui: "./scripts/open-ui.sh"
+    stop_all: "./scripts/stop-all.sh"
+
+# Port Management
+# ===============
+ports:
+  reserved:
+    6379: "Redis"
+    8080: "View Server"
+    8081: "Mock Data Generator" 
+    9092: "Kafka"
+  conflict_resolution:
+    strategy: "shutdown_first"
+    commands:
+      check_port: "lsof -i :{port}"
+      kill_process: "kill -9 {pid}"
+      verify_free: "lsof -i :{port} || echo 'Port {port} is free'"
+
+# Data Types and Volumes
+# =====================
+data:
+  types:
+    accounts:
+      count: 5
+      cache_key_pattern: "account:{accountId}"
+    instruments:
+      count: 7
+      cache_key_pattern: "instrument:{instrumentId}"
+    prices:
+      count: 7
+      update_frequency: "5s"
+      cache_key_pattern: "price:{instrumentId}"
+    sod_holdings:
+      count: 35
+      cache_key_pattern: "sod-holding:{date}#{instrumentId}#{accountId}"
+    orders:
+      initial_count: "700+"
+      cache_key_pattern: "order:{orderId}"
+    cash_movements:
+      frequency: "2m"
+      cache_key_pattern: "cash:{accountId}:{timestamp}"
+
+# Monitoring and Diagnostics
+# ==========================
+monitoring:
+  ui:
+    url: "http://localhost:8080/"
+    features:
+      - "Cache statistics overview"
+      - "Real-time data grids"
+      - "Individual refresh buttons"
+      - "Account selectors"
+      - "Auto-refresh capability"
+      - "Error handling"
+      - "Status badges"
+  
+  redis_keys:
+    check_command: "redis-cli DBSIZE"
+    expected_minimum: 800
+    
+  kafka_topics:
+    check_command: "kafka-topics --bootstrap-server localhost:9092 --list"
+    expected_topics: 6
+
+# Troubleshooting
+# ===============
+troubleshooting:
+  common_issues:
+    port_conflicts:
+      description: "Service fails to start due to port already in use"
+      solution: "Run stop-all.sh, verify ports are free, then restart services"
+    kafka_consumer_errors:
+      description: "Message conversion errors in Kafka consumers"
+      solution: "Check data serialization and topic message formats"
+    compilation_errors:
+      description: "Missing dependencies or import statements"
+      solution: "Check Maven dependencies and import statements"
+  
+  diagnostic_commands:
+    check_all_ports: "lsof -i :6379 && lsof -i :8080 && lsof -i :8081 && lsof -i :9092"
+    check_java_processes: "ps aux | grep java"
+    check_redis_data: "redis-cli DBSIZE"
+    check_kafka_topics: "kafka-topics --bootstrap-server localhost:9092 --list"
+
+# Development Guidelines
+# ======================
+development:
+  port_conflict_policy: "ALWAYS shutdown existing services before starting new ones"
+  url_change_policy: "NEVER change configured URLs/ports - fix conflicts by stopping services"
+  startup_verification: "Always verify each service is healthy before starting the next"
+  data_initialization: "Always run data initialization after starting mock generator" 
