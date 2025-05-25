@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * Tracks the full lifecycle from creation through fills to completion.
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Order {
