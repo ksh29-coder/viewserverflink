@@ -1,0 +1,15 @@
+{
+  "date": "2024-01-15",
+  "instrumentId": "INST001",
+  "accountId": "ACC001",
+  "quantity": 100.0,
+  "kafkaKey": "2024-01-15#INST001#ACC001",
+  "instrumentName": "Apple Inc",
+  "instrumentType": "EQUITY",
+  "currency": "USD",
+  "price": 150.25,
+  "priceDate": "2024-01-15",
+  "marketValueLocal": 15025.00,
+  "marketValueUSD": 15025.00,
+  "calculationTimestamp": "2025-05-25T13:40:00"
+} 

@@ -1,5 +1,6 @@
 package com.viewserver.viewserver.controller;
 
+import com.viewserver.aggregation.model.HoldingMV;
 import com.viewserver.data.model.*;
 import com.viewserver.viewserver.service.CacheService;
 import lombok.RequiredArgsConstructor;
@@ -153,5 +154,27 @@ public class ViewServerController {
             return ResponseEntity.status(500).body(result);
         }
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Get holdings with market values for specific account
+     * GET /api/holdings-mv/{accountId}
+     */
+    @GetMapping("/holdings-mv/{accountId}")
+    public ResponseEntity<Set<HoldingMV>> getAccountHoldingsWithMarketValue(@PathVariable("accountId") String accountId) {
+        log.debug("API request: GET /api/holdings-mv/{}", accountId);
+        Set<HoldingMV> holdingsMV = cacheService.getHoldingsMVForAccount(accountId);
+        return ResponseEntity.ok(holdingsMV);
+    }
+    
+    /**
+     * Get all holdings with market values
+     * GET /api/holdings-mv
+     */
+    @GetMapping("/holdings-mv")
+    public ResponseEntity<Set<HoldingMV>> getAllHoldingsWithMarketValue() {
+        log.debug("API request: GET /api/holdings-mv");
+        Set<HoldingMV> holdingsMV = cacheService.getAllHoldingsMV();
+        return ResponseEntity.ok(holdingsMV);
     }
 } 

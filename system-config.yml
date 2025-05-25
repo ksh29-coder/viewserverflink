@@ -28,6 +28,7 @@ infrastructure:
       - "base.sod-holding"
       - "base.order-events"
       - "base.cash-movement"
+      - "aggregation.holding-mv"
 
 # Application Services
 # ===================
@@ -110,6 +111,12 @@ services:
       - path: "/api/cash/{accountId}"
         method: "GET"
         description: "Get cash movements for account"
+      - path: "/api/holdings-mv"
+        method: "GET"
+        description: "Get all holdings with market values"
+      - path: "/api/holdings-mv/{accountId}"
+        method: "GET"
+        description: "Get holdings with market values for account"
 
 # Startup Procedures
 # ==================

@@ -1,7 +1,10 @@
+com/viewserver/aggregation/kafka/HoldingMVConsumer.class
 com/viewserver/viewserver/service/CacheService$CacheStats$CacheStatsBuilder.class
 com/viewserver/viewserver/service/CacheService.class
+com/viewserver/aggregation/model/HoldingMV$HoldingMVBuilder.class
 com/viewserver/viewserver/controller/ViewServerController.class
 com/viewserver/viewserver/config/WebConfig.class
 com/viewserver/viewserver/ViewServerApplication.class
 com/viewserver/viewserver/consumer/DataConsumerService.class
 com/viewserver/viewserver/service/CacheService$CacheStats.class
+com/viewserver/aggregation/model/HoldingMV.class

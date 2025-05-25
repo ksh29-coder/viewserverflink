@@ -2,6 +2,7 @@ package com.viewserver.viewserver.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.viewserver.aggregation.model.HoldingMV;
 import com.viewserver.data.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class CacheService {
     private static final String HOLDINGS_PREFIX = "holdings:";
     private static final String ORDERS_PREFIX = "orders:";
     private static final String CASH_PREFIX = "cash:";
+    private static final String HOLDINGS_MV_PREFIX = "holdings-mv:";
     
     // Time-to-live settings
     private static final Duration ACCOUNT_TTL = Duration.ofDays(30); // Static data, long TTL
@@ -39,6 +41,7 @@ public class CacheService {
     private static final Duration HOLDING_TTL = Duration.ofDays(7); // Holdings, weekly TTL
     private static final Duration ORDER_TTL = Duration.ofDays(1); // Orders, daily TTL
     private static final Duration CASH_TTL = Duration.ofDays(7); // Cash movements, weekly TTL
+    private static final Duration HOLDINGS_MV_TTL = Duration.ofDays(7); // Holdings MV, weekly TTL
     
     // ==================== JSON Parsing Methods ====================
     
@@ -70,6 +73,11 @@ public class CacheService {
     public void cacheIntradayCashFromJson(String json) throws JsonProcessingException {
         IntradayCash cash = objectMapper.readValue(json, IntradayCash.class);
         cacheCashMovement(cash);
+    }
+    
+    public void cacheHoldingMVFromJson(String json) throws JsonProcessingException {
+        HoldingMV holdingMV = objectMapper.readValue(json, HoldingMV.class);
+        cacheHoldingMV(holdingMV);
     }
     
     /**
@@ -160,6 +168,23 @@ public class CacheService {
     }
     
     /**
+     * Cache HoldingMV (Holding with Market Value)
+     */
+    public void cacheHoldingMV(HoldingMV holdingMV) {
+        try {
+            // Use simple key that overwrites previous entries for same account-instrument
+            String key = HOLDINGS_MV_PREFIX + holdingMV.getAccountId() + ":" + holdingMV.getInstrumentId();
+            String json = objectMapper.writeValueAsString(holdingMV);
+            redisTemplate.opsForValue().set(key, json, HOLDINGS_MV_TTL);
+            log.debug("Cached HoldingMV: {} {} in account {} (MV Local: {} {}, MV USD: {})", 
+                    holdingMV.getPosition(), holdingMV.getInstrumentName(), holdingMV.getAccountId(),
+                    holdingMV.getMarketValueLocal(), holdingMV.getCurrency(), holdingMV.getMarketValueUSD());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to cache HoldingMV for account {}: {}", holdingMV.getAccountId(), e.getMessage());
+        }
+    }
+    
+    /**
      * Get all accounts
      */
     public Set<Account> getAllAccounts() {
@@ -206,6 +231,20 @@ public class CacheService {
      */
     public Set<IntradayCash> getCashMovementsForAccount(String accountId) {
         return getByKeyPattern(CASH_PREFIX + accountId + ":*", IntradayCash.class);
+    }
+    
+    /**
+     * Get holdings with market values for account
+     */
+    public Set<HoldingMV> getHoldingsMVForAccount(String accountId) {
+        return getByKeyPattern(HOLDINGS_MV_PREFIX + accountId + ":*", HoldingMV.class);
+    }
+    
+    /**
+     * Get all holdings with market values
+     */
+    public Set<HoldingMV> getAllHoldingsMV() {
+        return getByKeyPattern(HOLDINGS_MV_PREFIX + "*", HoldingMV.class);
     }
     
     /**

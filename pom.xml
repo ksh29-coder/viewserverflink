@@ -29,6 +29,8 @@
     <modules>
         <module>shared-common</module>
         <module>data-layer</module>
+        <module>mv-calc</module>
+        <module>flink-jobs</module>
         <module>mock-data-generator</module>
         <module>view-server</module>
         <module>integration-tests</module>
