@@ -192,6 +192,171 @@
             font-size: 12px;
             color: #666;
         }
+        
+        /* Mock Data Generator Controls */
+        .control-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .control-group {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .control-group h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .control-group p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .control-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .control-btn.primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .control-btn.primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .control-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .control-btn.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .control-btn.success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .control-btn.success:hover {
+            background: #218838;
+        }
+        
+        .control-btn.danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .control-btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .control-btn:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .control-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .dynamic-status {
+            margin: 15px 0;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .status-indicator.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-indicator.disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        
+        .status-item {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .status-item-title {
+            font-weight: 500;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .status-item-desc {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        @media (max-width: 768px) {
+            .control-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-buttons {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -204,6 +369,42 @@
         <h3>Cache Statistics</h3>
         <div class="stats-grid" id="statsGrid">
             <div class="loading">Loading cache statistics...</div>
+        </div>
+    </div>
+
+    <!-- Mock Data Generator Controls -->
+    <div class="stats-container">
+        <h3>🎛️ Mock Data Generator Controls</h3>
+        <div class="control-section">
+            <div class="control-group">
+                <h4>Static Data Initialization</h4>
+                <p>Generate accounts, instruments, and SOD holdings</p>
+                <button class="control-btn primary" onclick="initializeStaticData()">
+                    🔧 Initialize All Data
+                </button>
+                <button class="control-btn secondary" onclick="generateStaticDataOnly()">
+                    📊 Static Data Only
+                </button>
+            </div>
+            
+            <div class="control-group">
+                <h4>Dynamic Data Streams</h4>
+                <p>Control continuous data generation (prices, orders, cash movements)</p>
+                <div class="dynamic-status" id="dynamicStatus">
+                    <div class="loading">Loading status...</div>
+                </div>
+                <div class="control-buttons">
+                    <button class="control-btn success" onclick="startDynamicData()">
+                        ▶️ Start Streams
+                    </button>
+                    <button class="control-btn danger" onclick="stopDynamicData()">
+                        ⏹️ Stop Streams
+                    </button>
+                    <button class="control-btn secondary" onclick="loadDynamicStatus()">
+                        🔄 Refresh Status
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -601,9 +802,181 @@
             }
         }
         
+        // Mock Data Generator Control Functions
+        const MOCK_DATA_BASE = 'http://localhost:8081';
+        
+        async function fetchMockData(endpoint, method = 'GET') {
+            try {
+                const response = await fetch(`${MOCK_DATA_BASE}/api/data-generation/${endpoint}`, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error with mock data ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        async function initializeStaticData() {
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '⏳ Initializing...';
+            
+            try {
+                const result = await fetchMockData('initialize', 'POST');
+                if (result.status === 'success') {
+                    showNotification('✅ Static data initialized successfully!', 'success');
+                    // Refresh cache stats after initialization
+                    setTimeout(loadStats, 2000);
+                } else {
+                    showNotification('❌ Failed to initialize static data', 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error initializing static data: ' + error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '🔧 Initialize All Data';
+            }
+        }
+        
+        async function generateStaticDataOnly() {
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '⏳ Generating...';
+            
+            try {
+                const result = await fetchMockData('static', 'POST');
+                if (result.status === 'success') {
+                    showNotification('✅ Static data generated successfully!', 'success');
+                    setTimeout(loadStats, 2000);
+                } else {
+                    showNotification('❌ Failed to generate static data', 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error generating static data: ' + error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '📊 Static Data Only';
+            }
+        }
+        
+        async function startDynamicData() {
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '⏳ Starting...';
+            
+            try {
+                const result = await fetchMockData('dynamic/start', 'POST');
+                if (result.status === 'success') {
+                    showNotification('✅ Dynamic data streams started!', 'success');
+                    setTimeout(loadDynamicStatus, 1000);
+                } else {
+                    showNotification('❌ Failed to start dynamic data streams', 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error starting dynamic data: ' + error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '▶️ Start Streams';
+            }
+        }
+        
+        async function stopDynamicData() {
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '⏳ Stopping...';
+            
+            try {
+                const result = await fetchMockData('dynamic/stop', 'POST');
+                if (result.status === 'success') {
+                    showNotification('✅ Dynamic data streams stopped!', 'success');
+                    setTimeout(loadDynamicStatus, 1000);
+                } else {
+                    showNotification('❌ Failed to stop dynamic data streams', 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error stopping dynamic data: ' + error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '⏹️ Stop Streams';
+            }
+        }
+        
+        async function loadDynamicStatus() {
+            try {
+                const status = await fetchMockData('dynamic/status');
+                const statusHtml = `
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-item-title">
+                                <span class="status-indicator ${status.prices.enabled ? 'enabled' : 'disabled'}">
+                                    ${status.prices.enabled ? '🟢' : '🔴'} Prices
+                                </span>
+                            </div>
+                            <div class="status-item-desc">${status.prices.frequency} - ${status.prices.description}</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-item-title">
+                                <span class="status-indicator ${status.orders.enabled ? 'enabled' : 'disabled'}">
+                                    ${status.orders.enabled ? '🟢' : '🔴'} Orders
+                                </span>
+                            </div>
+                            <div class="status-item-desc">${status.orders.frequency} - ${status.orders.description}</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-item-title">
+                                <span class="status-indicator ${status.cash_movements.enabled ? 'enabled' : 'disabled'}">
+                                    ${status.cash_movements.enabled ? '🟢' : '🔴'} Cash
+                                </span>
+                            </div>
+                            <div class="status-item-desc">${status.cash_movements.frequency} - ${status.cash_movements.description}</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('dynamicStatus').innerHTML = statusHtml;
+            } catch (error) {
+                document.getElementById('dynamicStatus').innerHTML = 
+                    '<div class="error">Failed to load dynamic status. Is mock data generator running?</div>';
+            }
+        }
+        
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 6px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                max-width: 400px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#667eea'};
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
         // Initialize page
         async function init() {
             await loadStats();
+            await loadDynamicStatus();
             await loadAccounts();
             await loadInstruments();
             await loadPrices();
@@ -613,6 +986,7 @@
         // Auto-refresh every 30 seconds
         setInterval(() => {
             loadStats();
+            loadDynamicStatus();
             loadPrices();
             loadOrders();
         }, 30000);

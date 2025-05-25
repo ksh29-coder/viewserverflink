@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Generates realistic intraday cash movements including dividends, 
@@ -25,6 +26,9 @@ public class IntradayCashGenerator {
     private final DataPublisher dataPublisher;
     private final Random random = new Random();
     
+    // Control flag for enabling/disabling generation
+    private final AtomicBoolean generationEnabled = new AtomicBoolean(true);
+    
     private static final String[] MOVEMENT_TYPES = {
             "DIVIDEND", "TRADE_SETTLEMENT", "SUBSCRIPTION", 
             "REDEMPTION", "FEE", "INTEREST"
@@ -35,6 +39,10 @@ public class IntradayCashGenerator {
      */
     @Scheduled(fixedRate = 120000) // 2 minutes
     public void generateCashMovements() {
+        if (!generationEnabled.get()) {
+            return; // Skip generation if disabled
+        }
+        
         // Generate 0-3 cash movements per cycle
         int numMovements = random.nextInt(4);
         
@@ -198,5 +206,28 @@ public class IntradayCashGenerator {
     public void generateCashMovementsNow() {
         log.info("Manually triggering cash movement generation");
         generateCashMovements();
+    }
+    
+    /**
+     * Start cash movement generation
+     */
+    public void startGeneration() {
+        generationEnabled.set(true);
+        log.info("Cash movement generation started");
+    }
+    
+    /**
+     * Stop cash movement generation
+     */
+    public void stopGeneration() {
+        generationEnabled.set(false);
+        log.info("Cash movement generation stopped");
+    }
+    
+    /**
+     * Check if cash movement generation is enabled
+     */
+    public boolean isGenerationEnabled() {
+        return generationEnabled.get();
     }
 } 

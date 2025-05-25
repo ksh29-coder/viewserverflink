@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Generates realistic trading orders and simulates their lifecycle.
@@ -27,6 +28,9 @@ public class OrderGenerator {
     private final DataPublisher dataPublisher;
     private final Random random = new Random();
     
+    // Control flag for enabling/disabling generation
+    private final AtomicBoolean generationEnabled = new AtomicBoolean(true);
+    
     private static final String[] ORDER_TYPES = {"MARKET", "LIMIT", "STOP"};
     private static final String[] VENUES = {"NYSE", "NASDAQ", "LSE", "EURONEXT"};
     
@@ -35,6 +39,10 @@ public class OrderGenerator {
      */
     @Scheduled(fixedRate = 30000) // 30 seconds
     public void generateNewOrders() {
+        if (!generationEnabled.get()) {
+            return; // Skip generation if disabled
+        }
+        
         // Generate 1-3 new orders per cycle
         int numOrders = random.nextInt(3) + 1;
         
@@ -91,6 +99,10 @@ public class OrderGenerator {
      */
     @Scheduled(fixedRate = 10000) // 10 seconds
     public void simulateOrderUpdates() {
+        if (!generationEnabled.get()) {
+            return; // Skip generation if disabled
+        }
+        
         // For demonstration, we'll simulate a few order updates
         // In practice, we'd track active orders and update them
         
@@ -218,5 +230,28 @@ public class OrderGenerator {
         log.info("Manually triggering order generation");
         generateNewOrders();
         simulateOrderUpdates();
+    }
+    
+    /**
+     * Start order generation
+     */
+    public void startGeneration() {
+        generationEnabled.set(true);
+        log.info("Order generation started");
+    }
+    
+    /**
+     * Stop order generation
+     */
+    public void stopGeneration() {
+        generationEnabled.set(false);
+        log.info("Order generation stopped");
+    }
+    
+    /**
+     * Check if order generation is enabled
+     */
+    public boolean isGenerationEnabled() {
+        return generationEnabled.get();
     }
 } 

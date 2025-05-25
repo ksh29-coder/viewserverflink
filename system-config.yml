@@ -53,6 +53,15 @@ services:
       - path: "/api/data-generation/status"
         method: "GET"
         description: "Service status check"
+      - path: "/api/data-generation/dynamic/start"
+        method: "POST"
+        description: "Start dynamic data streams (prices, orders, cash)"
+      - path: "/api/data-generation/dynamic/stop"
+        method: "POST"
+        description: "Stop dynamic data streams"
+      - path: "/api/data-generation/dynamic/status"
+        method: "GET"
+        description: "Get dynamic data generation status"
     data_generation:
       static:
         accounts: 5

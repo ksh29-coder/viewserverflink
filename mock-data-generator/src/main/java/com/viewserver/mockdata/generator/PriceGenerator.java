@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Generates realistic price updates for financial instruments throughout the trading day.
@@ -27,6 +28,9 @@ public class PriceGenerator {
     
     private final DataPublisher dataPublisher;
     private final Random random = new Random();
+    
+    // Control flag for enabling/disabling generation
+    private final AtomicBoolean generationEnabled = new AtomicBoolean(true);
     
     // Current prices for each instrument (simulated market state)
     private final Map<String, BigDecimal> currentPrices = new HashMap<>();
@@ -56,6 +60,10 @@ public class PriceGenerator {
      */
     @Scheduled(fixedRate = 5000) // 5 seconds
     public void generatePriceUpdates() {
+        if (!generationEnabled.get()) {
+            return; // Skip generation if disabled
+        }
+        
         if (currentPrices.isEmpty()) {
             initializePrices();
         }
@@ -160,5 +168,28 @@ public class PriceGenerator {
     public void generatePricesNow() {
         log.info("Manually triggering price generation");
         generatePriceUpdates();
+    }
+    
+    /**
+     * Start price generation
+     */
+    public void startGeneration() {
+        generationEnabled.set(true);
+        log.info("Price generation started");
+    }
+    
+    /**
+     * Stop price generation
+     */
+    public void stopGeneration() {
+        generationEnabled.set(false);
+        log.info("Price generation stopped");
+    }
+    
+    /**
+     * Check if price generation is enabled
+     */
+    public boolean isGenerationEnabled() {
+        return generationEnabled.get();
     }
 } 

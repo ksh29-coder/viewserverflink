@@ -1,5 +1,6 @@
 com/viewserver/mockdata/MockDataGeneratorApplication.class
 com/viewserver/mockdata/generator/PriceGenerator.class
+com/viewserver/mockdata/config/CorsConfig.class
 com/viewserver/mockdata/controller/DataGenerationController.class
 com/viewserver/mockdata/generator/OrderGenerator.class
 com/viewserver/mockdata/generator/StaticDataGenerator.class

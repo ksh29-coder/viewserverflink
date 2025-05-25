@@ -2,6 +2,9 @@ package com.viewserver.mockdata.controller;
 
 import com.viewserver.mockdata.generator.SODHoldingGenerator;
 import com.viewserver.mockdata.generator.StaticDataGenerator;
+import com.viewserver.mockdata.generator.PriceGenerator;
+import com.viewserver.mockdata.generator.OrderGenerator;
+import com.viewserver.mockdata.generator.IntradayCashGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,9 @@ public class DataGenerationController {
     
     private final StaticDataGenerator staticDataGenerator;
     private final SODHoldingGenerator sodHoldingGenerator;
+    private final PriceGenerator priceGenerator;
+    private final OrderGenerator orderGenerator;
+    private final IntradayCashGenerator intradayCashGenerator;
     
     /**
      * Trigger static data generation (accounts + instruments)
@@ -94,6 +100,79 @@ public class DataGenerationController {
     }
     
     /**
+     * Start dynamic data generation (prices, orders, cash movements)
+     */
+    @PostMapping("/dynamic/start")
+    public ResponseEntity<Map<String, String>> startDynamicDataGeneration() {
+        log.info("Starting dynamic data generation via REST API");
+        try {
+            priceGenerator.startGeneration();
+            orderGenerator.startGeneration();
+            intradayCashGenerator.startGeneration();
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Dynamic data generation started successfully",
+                "streams", "Prices (5s), Orders (30s/10s), Cash movements (2m)"
+            ));
+        } catch (Exception e) {
+            log.error("Failed to start dynamic data generation", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "status", "error",
+                "message", "Failed to start dynamic data generation: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Stop dynamic data generation
+     */
+    @PostMapping("/dynamic/stop")
+    public ResponseEntity<Map<String, String>> stopDynamicDataGeneration() {
+        log.info("Stopping dynamic data generation via REST API");
+        try {
+            priceGenerator.stopGeneration();
+            orderGenerator.stopGeneration();
+            intradayCashGenerator.stopGeneration();
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Dynamic data generation stopped successfully"
+            ));
+        } catch (Exception e) {
+            log.error("Failed to stop dynamic data generation", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "status", "error",
+                "message", "Failed to stop dynamic data generation: " + e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Get dynamic data generation status
+     */
+    @GetMapping("/dynamic/status")
+    public ResponseEntity<Map<String, Object>> getDynamicStatus() {
+        return ResponseEntity.ok(Map.of(
+            "prices", Map.of(
+                "enabled", priceGenerator.isGenerationEnabled(),
+                "frequency", "5 seconds",
+                "description", "Real-time price updates for equity instruments"
+            ),
+            "orders", Map.of(
+                "enabled", orderGenerator.isGenerationEnabled(),
+                "frequency", "New orders: 30s, Updates: 10s",
+                "description", "Trading orders and lifecycle simulation"
+            ),
+            "cash_movements", Map.of(
+                "enabled", intradayCashGenerator.isGenerationEnabled(),
+                "frequency", "2 minutes",
+                "description", "Cash movements, dividends, and settlements"
+            )
+        ));
+    }
+    
+    /**
      * Get status of data generation capabilities
      */
     @GetMapping("/status")
@@ -110,6 +189,12 @@ public class DataGenerationController {
             "initialize", Map.of(
                 "endpoint", "/api/data-generation/initialize",
                 "description", "Generate static data + SOD holdings together"
+            ),
+            "dynamic-control", Map.of(
+                "start", "/api/data-generation/dynamic/start",
+                "stop", "/api/data-generation/dynamic/stop",
+                "status", "/api/data-generation/dynamic/status",
+                "description", "Control continuous data streams"
             )
         ));
     }

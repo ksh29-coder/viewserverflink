@@ -4,4 +4,5 @@
 /Users/kaishen/IdeaProjects/viewserverflink/mock-data-generator/src/main/java/com/viewserver/mockdata/generator/SODHoldingGenerator.java
 /Users/kaishen/IdeaProjects/viewserverflink/mock-data-generator/src/main/java/com/viewserver/mockdata/generator/StaticDataGenerator.java
 /Users/kaishen/IdeaProjects/viewserverflink/mock-data-generator/src/main/java/com/viewserver/mockdata/generator/IntradayCashGenerator.java
+/Users/kaishen/IdeaProjects/viewserverflink/mock-data-generator/src/main/java/com/viewserver/mockdata/config/CorsConfig.java
 /Users/kaishen/IdeaProjects/viewserverflink/mock-data-generator/src/main/java/com/viewserver/mockdata/controller/DataGenerationController.java
