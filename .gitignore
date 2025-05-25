@@ -1,6 +1,7 @@
 # Log files
 *.log
 view-server.log
+view-server.log.*
 mock-data-generator.log
 
 # Maven
