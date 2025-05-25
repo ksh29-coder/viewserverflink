@@ -3,28 +3,23 @@ spring:
     name: view-server
   
   # Redis configuration
-  redis:
-    host: localhost
-    port: 6379
-    timeout: 2000ms
-    
-  # Jackson configuration for LocalDateTime
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
-    deserialization:
-      fail-on-unknown-properties: false
-      
-  # Kafka consumer configuration
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: view-server
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      auto-offset-reset: earliest
-      enable-auto-commit: true
-      auto-commit-interval: 1000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+  # Static resources configuration
+  web:
+    resources:
+      static-locations: classpath:/static/
+      cache-period: 0
 
 # Server configuration
 server:
@@ -39,6 +34,8 @@ logging:
     org.springframework.data.redis: INFO
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: view-server/view-server.log
     
 # Management endpoints for monitoring
 management:
@@ -48,4 +45,17 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: always 
+      show-details: always
+
+# Kafka consumer configuration
+kafka:
+  bootstrap-servers: localhost:9092
+  consumer:
+    group-id: view-server
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    auto-offset-reset: latest
+    properties:
+      spring.json.trusted.packages: "*"
+    enable-auto-commit: true
+    auto-commit-interval: 1000 

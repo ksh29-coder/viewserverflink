@@ -7,6 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -116,24 +120,38 @@ public class ViewServerController {
     }
     
     /**
-     * Health check endpoint
+     * Simple health check endpoint
      * GET /api/health
      */
     @GetMapping("/health")
-    public ResponseEntity<HealthStatus> getHealth() {
-        return ResponseEntity.ok(new HealthStatus("UP", "View Server is running"));
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "UP");
+        health.put("timestamp", new Date());
+        health.put("message", "View Server is running");
+        return ResponseEntity.ok(health);
     }
-    
+
     /**
-     * Simple health status class
+     * Redis connectivity test
+     * GET /api/redis-test
      */
-    public static class HealthStatus {
-        public final String status;
-        public final String message;
-        
-        public HealthStatus(String status, String message) {
-            this.status = status;
-            this.message = message;
+    @GetMapping("/redis-test")
+    public ResponseEntity<Map<String, Object>> redisTest() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // Try to get a simple key from Redis
+            String testKey = "test:connection";
+            cacheService.cacheAccount(new Account("TEST", "Test Account", LocalDateTime.now()));
+            result.put("status", "SUCCESS");
+            result.put("message", "Redis connection is working");
+            result.put("timestamp", new Date());
+        } catch (Exception e) {
+            result.put("status", "ERROR");
+            result.put("message", "Redis connection failed: " + e.getMessage());
+            result.put("timestamp", new Date());
+            return ResponseEntity.status(500).body(result);
         }
+        return ResponseEntity.ok(result);
     }
 } 

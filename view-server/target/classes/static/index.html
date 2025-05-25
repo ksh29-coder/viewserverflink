@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Server Diagnostic Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        
+        .stats-container {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        
+        .data-section {
+            margin: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .refresh-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .account-selector {
+            margin: 15px 20px;
+        }
+        
+        .account-selector select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .table-container {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        th {
+            background: #f8f9fa;
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-filled { background: #d4edda; color: #155724; }
+        .status-new { background: #cce5ff; color: #004085; }
+        .status-partially-filled { background: #fff3cd; color: #856404; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+        
+        .movement-positive { color: #28a745; font-weight: 500; }
+        .movement-negative { color: #dc3545; font-weight: 500; }
+        
+        .timestamp {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 View Server Diagnostic Dashboard</h1>
+        <p>Real-time data inspection and cache monitoring</p>
+    </div>
+
+    <div class="stats-container">
+        <h3>Cache Statistics</h3>
+        <div class="stats-grid" id="statsGrid">
+            <div class="loading">Loading cache statistics...</div>
+        </div>
+    </div>
+
+    <!-- Accounts Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">📊 Accounts</span>
+            <button class="refresh-btn" onclick="loadAccounts()">🔄 Refresh</button>
+        </div>
+        <div class="table-container" id="accountsContainer">
+            <div class="loading">Loading accounts...</div>
+        </div>
+    </div>
+
+    <!-- Instruments Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">🏦 Instruments</span>
+            <button class="refresh-btn" onclick="loadInstruments()">🔄 Refresh</button>
+        </div>
+        <div class="table-container" id="instrumentsContainer">
+            <div class="loading">Loading instruments...</div>
+        </div>
+    </div>
+
+    <!-- Prices Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">💰 Latest Prices</span>
+            <button class="refresh-btn" onclick="loadPrices()">🔄 Refresh</button>
+        </div>
+        <div class="table-container" id="pricesContainer">
+            <div class="loading">Loading prices...</div>
+        </div>
+    </div>
+
+    <!-- Holdings Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">📈 Holdings</span>
+            <button class="refresh-btn" onclick="loadHoldings()">🔄 Refresh</button>
+        </div>
+        <div class="account-selector">
+            <label>Select Account: </label>
+            <select id="holdingsAccountSelect" onchange="loadHoldings()">
+                <option value="">Select account...</option>
+            </select>
+        </div>
+        <div class="table-container" id="holdingsContainer">
+            <div class="loading">Select an account to view holdings...</div>
+        </div>
+    </div>
+
+    <!-- Orders Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">📋 Orders</span>
+            <button class="refresh-btn" onclick="loadOrders()">🔄 Refresh</button>
+        </div>
+        <div class="table-container" id="ordersContainer">
+            <div class="loading">Loading orders...</div>
+        </div>
+    </div>
+
+    <!-- Cash Movements Section -->
+    <div class="data-section">
+        <div class="section-header">
+            <span class="section-title">💵 Cash Movements</span>
+            <button class="refresh-btn" onclick="loadCashMovements()">🔄 Refresh</button>
+        </div>
+        <div class="account-selector">
+            <label>Select Account: </label>
+            <select id="cashAccountSelect" onchange="loadCashMovements()">
+                <option value="">Select account...</option>
+            </select>
+        </div>
+        <div class="table-container" id="cashContainer">
+            <div class="loading">Select an account to view cash movements...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        
+        // Utility functions
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+        
+        function formatNumber(num) {
+            return new Intl.NumberFormat('en-US').format(num);
+        }
+        
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}/api/${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = 
+                `<div class="error">Error: ${message}</div>`;
+        }
+        
+        // Load cache statistics
+        async function loadStats() {
+            try {
+                const stats = await fetchData('stats');
+                const statsHtml = `
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.accountCount || 0}</div>
+                        <div class="stat-label">Accounts</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.instrumentCount || 0}</div>
+                        <div class="stat-label">Instruments</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.priceCount || 0}</div>
+                        <div class="stat-label">Prices</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.holdingCount || 0}</div>
+                        <div class="stat-label">Holdings</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.orderCount || 0}</div>
+                        <div class="stat-label">Orders</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${stats.cashCount || 0}</div>
+                        <div class="stat-label">Cash Movements</div>
+                    </div>
+                `;
+                document.getElementById('statsGrid').innerHTML = statsHtml;
+            } catch (error) {
+                document.getElementById('statsGrid').innerHTML = 
+                    '<div class="error">Failed to load cache statistics</div>';
+            }
+        }
+        
+        // Load accounts
+        async function loadAccounts() {
+            try {
+                const accounts = await fetchData('accounts');
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Account ID</th>
+                                <th>Account Name</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${accounts.map(account => `
+                                <tr>
+                                    <td><strong>${account.accountId}</strong></td>
+                                    <td>${account.accountName || 'N/A'}</td>
+                                    <td class="timestamp">${formatTimestamp(account.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('accountsContainer').innerHTML = tableHtml;
+                
+                // Update account selectors
+                updateAccountSelectors(accounts);
+            } catch (error) {
+                showError('accountsContainer', 'Failed to load accounts');
+            }
+        }
+        
+        function updateAccountSelectors(accounts) {
+            const holdingsSelect = document.getElementById('holdingsAccountSelect');
+            const cashSelect = document.getElementById('cashAccountSelect');
+            
+            const options = accounts.map(acc => 
+                `<option value="${acc.accountId}">${acc.accountId}</option>`
+            ).join('');
+            
+            holdingsSelect.innerHTML = '<option value="">Select account...</option>' + options;
+            cashSelect.innerHTML = '<option value="">Select account...</option>' + options;
+        }
+        
+        // Load instruments
+        async function loadInstruments() {
+            try {
+                const instruments = await fetchData('instruments');
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Instrument ID</th>
+                                <th>Type</th>
+                                <th>Currency</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${instruments.map(instrument => `
+                                <tr>
+                                    <td><strong>${instrument.instrumentId}</strong></td>
+                                    <td>${instrument.instrumentType}</td>
+                                    <td>${instrument.currency}</td>
+                                    <td class="timestamp">${formatTimestamp(instrument.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('instrumentsContainer').innerHTML = tableHtml;
+            } catch (error) {
+                showError('instrumentsContainer', 'Failed to load instruments');
+            }
+        }
+        
+        // Load prices
+        async function loadPrices() {
+            try {
+                const prices = await fetchData('prices');
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Instrument</th>
+                                <th>Price</th>
+                                <th>Date</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${prices.map(price => `
+                                <tr>
+                                    <td><strong>${price.instrumentId}</strong></td>
+                                    <td>$${formatCurrency(price.price)}</td>
+                                    <td>${price.date}</td>
+                                    <td class="timestamp">${formatTimestamp(price.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('pricesContainer').innerHTML = tableHtml;
+            } catch (error) {
+                showError('pricesContainer', 'Failed to load prices');
+            }
+        }
+        
+        // Load holdings
+        async function loadHoldings() {
+            const accountId = document.getElementById('holdingsAccountSelect').value;
+            if (!accountId) {
+                document.getElementById('holdingsContainer').innerHTML = 
+                    '<div class="loading">Select an account to view holdings...</div>';
+                return;
+            }
+            
+            try {
+                const holdings = await fetchData(`holdings/${accountId}`);
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Instrument</th>
+                                <th>Position</th>
+                                <th>Date</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${holdings.map(holding => `
+                                <tr>
+                                    <td><strong>${holding.instrumentId}</strong></td>
+                                    <td>${formatNumber(holding.position)}</td>
+                                    <td>${holding.date}</td>
+                                    <td class="timestamp">${formatTimestamp(holding.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('holdingsContainer').innerHTML = tableHtml;
+            } catch (error) {
+                showError('holdingsContainer', `Failed to load holdings for ${accountId}`);
+            }
+        }
+        
+        // Load orders
+        async function loadOrders() {
+            try {
+                const orders = await fetchData('orders');
+                // Sort by timestamp descending
+                orders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                // Take only first 100 for performance
+                const recentOrders = orders.slice(0, 100);
+                
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Account</th>
+                                <th>Instrument</th>
+                                <th>Quantity</th>
+                                <th>Filled</th>
+                                <th>Status</th>
+                                <th>Price</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recentOrders.map(order => `
+                                <tr>
+                                    <td><strong>${order.orderId}</strong></td>
+                                    <td>${order.accountId}</td>
+                                    <td>${order.instrumentId}</td>
+                                    <td>${formatNumber(order.orderQuantity)}</td>
+                                    <td>${formatNumber(order.filledQuantity)}</td>
+                                    <td><span class="status-badge status-${order.orderStatus.toLowerCase().replace('_', '-')}">${order.orderStatus}</span></td>
+                                    <td>$${formatCurrency(order.orderPrice)}</td>
+                                    <td class="timestamp">${formatTimestamp(order.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('ordersContainer').innerHTML = tableHtml;
+            } catch (error) {
+                showError('ordersContainer', 'Failed to load orders');
+            }
+        }
+        
+        // Load cash movements
+        async function loadCashMovements() {
+            const accountId = document.getElementById('cashAccountSelect').value;
+            if (!accountId) {
+                document.getElementById('cashContainer').innerHTML = 
+                    '<div class="loading">Select an account to view cash movements...</div>';
+                return;
+            }
+            
+            try {
+                const cashMovements = await fetchData(`cash/${accountId}`);
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Currency</th>
+                                <th>Amount</th>
+                                <th>Movement Type</th>
+                                <th>Reference</th>
+                                <th>Date</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${cashMovements.map(cash => `
+                                <tr>
+                                    <td><strong>${cash.instrumentId}</strong></td>
+                                    <td class="${cash.quantity >= 0 ? 'movement-positive' : 'movement-negative'}">
+                                        ${cash.quantity >= 0 ? '+' : ''}${formatCurrency(cash.quantity)}
+                                    </td>
+                                    <td>${cash.movementType}</td>
+                                    <td>${cash.referenceId}</td>
+                                    <td>${cash.date.split('T')[0]}</td>
+                                    <td class="timestamp">${formatTimestamp(cash.timestamp)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('cashContainer').innerHTML = tableHtml;
+            } catch (error) {
+                showError('cashContainer', `Failed to load cash movements for ${accountId}`);
+            }
+        }
+        
+        // Initialize page
+        async function init() {
+            await loadStats();
+            await loadAccounts();
+            await loadInstruments();
+            await loadPrices();
+            await loadOrders();
+        }
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadStats();
+            loadPrices();
+            loadOrders();
+        }, 30000);
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html> 
