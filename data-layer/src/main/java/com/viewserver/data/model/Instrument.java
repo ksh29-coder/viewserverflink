@@ -33,6 +33,20 @@ public class Instrument {
     private String instrumentName;
     
     /**
+     * Type of financial instrument
+     * Examples: "EQUITY", "BOND", "CURRENCY", "DERIVATIVE", "FUND"
+     */
+    @JsonProperty("instrumentType")
+    private String instrumentType;
+    
+    /**
+     * Currency in which the instrument is denominated
+     * Examples: "USD", "EUR", "GBP", "JPY"
+     */
+    @JsonProperty("currency")
+    private String currency;
+    
+    /**
      * Country where the primary investment risk is located
      */
     @JsonProperty("countryOfRisk")
@@ -76,6 +90,6 @@ public class Instrument {
      * Check if this instrument represents a cash/currency position
      */
     public boolean isCash() {
-        return "Cash".equalsIgnoreCase(sector);
+        return "Cash".equalsIgnoreCase(sector) || "CURRENCY".equalsIgnoreCase(instrumentType);
     }
 } 

@@ -173,6 +173,21 @@
         .movement-positive { color: #28a745; font-weight: 500; }
         .movement-negative { color: #dc3545; font-weight: 500; }
         
+        .instrument-type-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .type-equity { background: #e3f2fd; color: #1565c0; }
+        .type-bond { background: #f3e5f5; color: #7b1fa2; }
+        .type-currency { background: #e8f5e8; color: #2e7d32; }
+        .type-derivative { background: #fff3e0; color: #ef6c00; }
+        .type-fund { background: #fce4ec; color: #c2185b; }
+        .type-unknown { background: #f5f5f5; color: #666; }
+        
         .timestamp {
             font-size: 12px;
             color: #666;
@@ -396,8 +411,11 @@
                         <thead>
                             <tr>
                                 <th>Instrument ID</th>
+                                <th>Name</th>
                                 <th>Type</th>
                                 <th>Currency</th>
+                                <th>Country of Risk</th>
+                                <th>Sector</th>
                                 <th>Timestamp</th>
                             </tr>
                         </thead>
@@ -405,8 +423,11 @@
                             ${instruments.map(instrument => `
                                 <tr>
                                     <td><strong>${instrument.instrumentId}</strong></td>
-                                    <td>${instrument.instrumentType}</td>
-                                    <td>${instrument.currency}</td>
+                                    <td>${instrument.instrumentName || 'N/A'}</td>
+                                    <td><span class="instrument-type-badge type-${(instrument.instrumentType || 'unknown').toLowerCase()}">${instrument.instrumentType || 'N/A'}</span></td>
+                                    <td><strong>${instrument.currency || 'N/A'}</strong></td>
+                                    <td>${instrument.countryOfRisk || 'N/A'}</td>
+                                    <td>${instrument.sector || 'N/A'}</td>
                                     <td class="timestamp">${formatTimestamp(instrument.timestamp)}</td>
                                 </tr>
                             `).join('')}
