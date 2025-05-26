@@ -6,41 +6,59 @@ import { apiService } from '../services/apiService'
 
 const AggregationLayer = () => {
   const [holdingsMV, setHoldingsMV] = useState([])
+  const [ordersMV, setOrdersMV] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedAccount, setSelectedAccount] = useState('')
   const [accounts, setAccounts] = useState([])
   const [lastRefresh, setLastRefresh] = useState(new Date())
   
-  // Grid state management
-  const gridRef = useRef()
-  const [gridState, setGridState] = useState(null)
+  // Grid state management for both grids
+  const holdingsGridRef = useRef()
+  const ordersGridRef = useRef()
+  const [holdingsGridState, setHoldingsGridState] = useState(null)
+  const [ordersGridState, setOrdersGridState] = useState(null)
 
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Save current grid state before refreshing data
-      if (gridRef.current && gridRef.current.api) {
+      // Save current grid states before refreshing data
+      if (holdingsGridRef.current && holdingsGridRef.current.api) {
         try {
           const currentState = {
-            filterModel: gridRef.current.api.getFilterModel ? gridRef.current.api.getFilterModel() : null,
-            sortModel: gridRef.current.api.getSortModel ? gridRef.current.api.getSortModel() : null,
-            columnState: gridRef.current.api.getColumnState ? gridRef.current.api.getColumnState() : null
+            filterModel: holdingsGridRef.current.api.getFilterModel ? holdingsGridRef.current.api.getFilterModel() : null,
+            sortModel: holdingsGridRef.current.api.getSortModel ? holdingsGridRef.current.api.getSortModel() : null,
+            columnState: holdingsGridRef.current.api.getColumnState ? holdingsGridRef.current.api.getColumnState() : null
           }
-          setGridState(currentState)
+          setHoldingsGridState(currentState)
         } catch (gridError) {
-          console.warn('Failed to save grid state:', gridError)
+          console.warn('Failed to save holdings grid state:', gridError)
         }
       }
       
-      const [holdingsMVData, accountsData] = await Promise.all([
+      if (ordersGridRef.current && ordersGridRef.current.api) {
+        try {
+          const currentState = {
+            filterModel: ordersGridRef.current.api.getFilterModel ? ordersGridRef.current.api.getFilterModel() : null,
+            sortModel: ordersGridRef.current.api.getSortModel ? ordersGridRef.current.api.getSortModel() : null,
+            columnState: ordersGridRef.current.api.getColumnState ? ordersGridRef.current.api.getColumnState() : null
+          }
+          setOrdersGridState(currentState)
+        } catch (gridError) {
+          console.warn('Failed to save orders grid state:', gridError)
+        }
+      }
+      
+      const [holdingsMVData, ordersMVData, accountsData] = await Promise.all([
         apiService.getAllHoldingsMV(),
+        apiService.getAllOrdersMV(),
         apiService.getAccounts()
       ])
       
       setHoldingsMV(holdingsMVData)
+      setOrdersMV(ordersMVData)
       setAccounts(accountsData)
       setLastRefresh(new Date())
     } catch (err) {
@@ -52,28 +70,53 @@ const AggregationLayer = () => {
   }
 
   // Restore grid state after data update
-  const onGridReady = (params) => {
-    gridRef.current = params
+  const onHoldingsGridReady = (params) => {
+    holdingsGridRef.current = params
     
     // Restore state if it exists
-    if (gridState) {
+    if (holdingsGridState) {
       setTimeout(() => {
         if (params.api) {
           try {
-            if (gridState.filterModel && params.api.setFilterModel) {
-              params.api.setFilterModel(gridState.filterModel)
+            if (holdingsGridState.filterModel && params.api.setFilterModel) {
+              params.api.setFilterModel(holdingsGridState.filterModel)
             }
-            if (gridState.sortModel && params.api.setSortModel) {
-              params.api.setSortModel(gridState.sortModel)
+            if (holdingsGridState.sortModel && params.api.setSortModel) {
+              params.api.setSortModel(holdingsGridState.sortModel)
             }
-            if (gridState.columnState && params.api.applyColumnState) {
-              params.api.applyColumnState({ state: gridState.columnState })
+            if (holdingsGridState.columnState && params.api.applyColumnState) {
+              params.api.applyColumnState({ state: holdingsGridState.columnState })
             }
           } catch (gridError) {
-            console.warn('Failed to restore grid state:', gridError)
+            console.warn('Failed to restore holdings grid state:', gridError)
           }
         }
-      }, 100) // Small delay to ensure data is loaded
+      }, 100)
+    }
+  }
+
+  const onOrdersGridReady = (params) => {
+    ordersGridRef.current = params
+    
+    // Restore state if it exists
+    if (ordersGridState) {
+      setTimeout(() => {
+        if (params.api) {
+          try {
+            if (ordersGridState.filterModel && params.api.setFilterModel) {
+              params.api.setFilterModel(ordersGridState.filterModel)
+            }
+            if (ordersGridState.sortModel && params.api.setSortModel) {
+              params.api.setSortModel(ordersGridState.sortModel)
+            }
+            if (ordersGridState.columnState && params.api.applyColumnState) {
+              params.api.applyColumnState({ state: ordersGridState.columnState })
+            }
+          } catch (gridError) {
+            console.warn('Failed to restore orders grid state:', gridError)
+          }
+        }
+      }, 100)
     }
   }
 
@@ -85,48 +128,82 @@ const AggregationLayer = () => {
     return () => clearInterval(interval)
   }, [])
 
-  // Restore grid state when data changes
+  // Restore grid states when data changes
   useEffect(() => {
-    if (gridRef.current && gridRef.current.api && gridState) {
+    if (holdingsGridRef.current && holdingsGridRef.current.api && holdingsGridState) {
       setTimeout(() => {
         try {
-          if (gridState.filterModel && gridRef.current.api.setFilterModel) {
-            gridRef.current.api.setFilterModel(gridState.filterModel)
+          if (holdingsGridState.filterModel && holdingsGridRef.current.api.setFilterModel) {
+            holdingsGridRef.current.api.setFilterModel(holdingsGridState.filterModel)
           }
-          if (gridState.sortModel && gridRef.current.api.setSortModel) {
-            gridRef.current.api.setSortModel(gridState.sortModel)
+          if (holdingsGridState.sortModel && holdingsGridRef.current.api.setSortModel) {
+            holdingsGridRef.current.api.setSortModel(holdingsGridState.sortModel)
           }
-          if (gridState.columnState && gridRef.current.api.applyColumnState) {
-            gridRef.current.api.applyColumnState({ state: gridState.columnState })
+          if (holdingsGridState.columnState && holdingsGridRef.current.api.applyColumnState) {
+            holdingsGridRef.current.api.applyColumnState({ state: holdingsGridState.columnState })
           }
         } catch (gridError) {
-          console.warn('Failed to restore grid state in useEffect:', gridError)
+          console.warn('Failed to restore holdings grid state in useEffect:', gridError)
         }
       }, 100)
     }
-  }, [holdingsMV, gridState])
+  }, [holdingsMV, holdingsGridState])
+
+  useEffect(() => {
+    if (ordersGridRef.current && ordersGridRef.current.api && ordersGridState) {
+      setTimeout(() => {
+        try {
+          if (ordersGridState.filterModel && ordersGridRef.current.api.setFilterModel) {
+            ordersGridRef.current.api.setFilterModel(ordersGridState.filterModel)
+          }
+          if (ordersGridState.sortModel && ordersGridRef.current.api.setSortModel) {
+            ordersGridRef.current.api.setSortModel(ordersGridState.sortModel)
+          }
+          if (ordersGridState.columnState && ordersGridRef.current.api.applyColumnState) {
+            ordersGridRef.current.api.applyColumnState({ state: ordersGridState.columnState })
+          }
+        } catch (gridError) {
+          console.warn('Failed to restore orders grid state in useEffect:', gridError)
+        }
+      }, 100)
+    }
+  }, [ordersMV, ordersGridState])
 
   const handleRefresh = () => {
     fetchData()
   }
 
-  // Filter holdings by selected account
+  // Filter data by selected account
   const filteredHoldings = selectedAccount 
     ? holdingsMV.filter(holding => holding.accountId === selectedAccount)
     : holdingsMV
 
-  // Calculate summary statistics
-  const totalMarketValueUSD = filteredHoldings.reduce((sum, holding) => {
+  const filteredOrders = selectedAccount 
+    ? ordersMV.filter(order => order.accountId === selectedAccount)
+    : ordersMV
+
+  // Calculate summary statistics for holdings
+  const totalHoldingsMarketValueUSD = filteredHoldings.reduce((sum, holding) => {
     return sum + (holding.marketValueUSD || 0)
   }, 0)
   
-  const totalMarketValueLocal = filteredHoldings.reduce((sum, holding) => {
+  const totalHoldingsMarketValueLocal = filteredHoldings.reduce((sum, holding) => {
     return sum + (holding.marketValueLocal || 0)
   }, 0)
 
-  const instrumentTypes = [...new Set(filteredHoldings.map(h => h.instrumentType))]
+  // Calculate summary statistics for orders
+  const totalOrdersMarketValueUSD = filteredOrders.reduce((sum, order) => {
+    return sum + (order.orderMarketValueUSD || 0)
+  }, 0)
 
-  const columnDefs = [
+  const totalFilledMarketValueUSD = filteredOrders.reduce((sum, order) => {
+    return sum + (order.filledMarketValueUSD || 0)
+  }, 0)
+
+  const instrumentTypes = [...new Set([...filteredHoldings.map(h => h.instrumentType), ...filteredOrders.map(o => o.instrumentType)])]
+
+  // Holdings column definitions
+  const holdingsColumnDefs = [
     { 
       headerName: 'Account', 
       field: 'accountId', 
@@ -197,6 +274,128 @@ const AggregationLayer = () => {
     }
   ]
 
+  // Orders column definitions
+  const ordersColumnDefs = [
+    { 
+      headerName: 'Account', 
+      field: 'accountId', 
+      width: 100,
+      pinned: 'left'
+    },
+    { 
+      headerName: 'Order ID', 
+      field: 'orderId', 
+      width: 120,
+      pinned: 'left'
+    },
+    { 
+      headerName: 'Instrument', 
+      field: 'instrumentId', 
+      width: 120,
+      pinned: 'left'
+    },
+    { 
+      headerName: 'Name', 
+      field: 'instrumentName', 
+      width: 200
+    },
+    { 
+      headerName: 'Type', 
+      field: 'instrumentType', 
+      width: 100
+    },
+    { 
+      headerName: 'Side', 
+      field: 'side', 
+      width: 80,
+      cellStyle: params => ({
+        backgroundColor: params.value === 'BUY' ? '#d4edda' : '#f8d7da',
+        fontWeight: 'bold'
+      })
+    },
+    { 
+      headerName: 'Currency', 
+      field: 'currency', 
+      width: 100
+    },
+    { 
+      headerName: 'Quantity', 
+      field: 'quantity', 
+      width: 120,
+      valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
+    },
+    { 
+      headerName: 'Filled Qty', 
+      field: 'filledQuantity', 
+      width: 120,
+      valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
+    },
+    { 
+      headerName: 'Price', 
+      field: 'price', 
+      width: 120,
+      valueFormatter: params => params.value ? `$${params.value.toFixed(2)}` : '$0.00'
+    },
+    { 
+      headerName: 'Order MV (Local)', 
+      field: 'orderMarketValueLocal', 
+      width: 160,
+      valueFormatter: params => params.value ? `${params.value.toLocaleString('en-US', {
+        style: 'currency',
+        currency: params.data.currency || 'USD'
+      })}` : '$0.00',
+      cellStyle: { backgroundColor: '#fff3cd', fontWeight: 'bold' }
+    },
+    { 
+      headerName: 'Order MV (USD)', 
+      field: 'orderMarketValueUSD', 
+      width: 160,
+      valueFormatter: params => params.value ? `$${params.value.toLocaleString()}` : '$0.00',
+      cellStyle: { backgroundColor: '#d1ecf1', fontWeight: 'bold' }
+    },
+    { 
+      headerName: 'Filled MV (Local)', 
+      field: 'filledMarketValueLocal', 
+      width: 160,
+      valueFormatter: params => params.value ? `${params.value.toLocaleString('en-US', {
+        style: 'currency',
+        currency: params.data.currency || 'USD'
+      })}` : '$0.00',
+      cellStyle: { backgroundColor: '#e8f5e8', fontWeight: 'bold' }
+    },
+    { 
+      headerName: 'Filled MV (USD)', 
+      field: 'filledMarketValueUSD', 
+      width: 160,
+      valueFormatter: params => params.value ? `$${params.value.toLocaleString()}` : '$0.00',
+      cellStyle: { backgroundColor: '#e8f4fd', fontWeight: 'bold' }
+    },
+    { 
+      headerName: 'Status', 
+      field: 'status', 
+      width: 100,
+      cellStyle: params => {
+        const status = params.value;
+        if (status === 'FILLED') return { backgroundColor: '#d4edda', fontWeight: 'bold' };
+        if (status === 'PARTIAL') return { backgroundColor: '#fff3cd', fontWeight: 'bold' };
+        if (status === 'PENDING') return { backgroundColor: '#d1ecf1', fontWeight: 'bold' };
+        return { fontWeight: 'bold' };
+      }
+    },
+    { 
+      headerName: 'Order Time', 
+      field: 'orderTimestamp', 
+      width: 180,
+      valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
+    },
+    { 
+      headerName: 'Calculation Time', 
+      field: 'calculationTimestamp', 
+      width: 180,
+      valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
+    }
+  ]
+
   const defaultColDef = {
     sortable: true,
     filter: true,
@@ -234,7 +433,7 @@ const AggregationLayer = () => {
   return (
     <div style={{ padding: '20px' }}>
       <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>Aggregation Layer - Holdings with Market Values</h2>
+        <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>Aggregation Layer - Holdings & Orders with Market Values</h2>
         
         {/* Controls Section - Account Filter and Refresh Button */}
         <div style={{ 
@@ -310,9 +509,21 @@ const AggregationLayer = () => {
             borderRadius: '8px', 
             border: '1px solid #b8daff' 
           }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#004085' }}>Total Market Value (USD)</h4>
+            <h4 style={{ margin: '0 0 5px 0', color: '#004085' }}>Holdings MV (USD)</h4>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#004085' }}>
-              ${totalMarketValueUSD.toLocaleString()}
+              ${totalHoldingsMarketValueUSD.toLocaleString()}
+            </div>
+          </div>
+          
+          <div style={{ 
+            padding: '15px', 
+            backgroundColor: '#d1ecf1', 
+            borderRadius: '8px', 
+            border: '1px solid #bee5eb' 
+          }}>
+            <h4 style={{ margin: '0 0 5px 0', color: '#0c5460' }}>Orders MV (USD)</h4>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0c5460' }}>
+              ${totalOrdersMarketValueUSD.toLocaleString()}
             </div>
           </div>
           
@@ -322,9 +533,9 @@ const AggregationLayer = () => {
             borderRadius: '8px', 
             border: '1px solid #b8e6b8' 
           }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#155724' }}>Total Market Value (Local)</h4>
+            <h4 style={{ margin: '0 0 5px 0', color: '#155724' }}>Filled MV (USD)</h4>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#155724' }}>
-              {totalMarketValueLocal.toLocaleString()}
+              ${totalFilledMarketValueUSD.toLocaleString()}
             </div>
           </div>
           
@@ -346,27 +557,60 @@ const AggregationLayer = () => {
             borderRadius: '8px', 
             border: '1px solid #f5c6cb' 
           }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#721c24' }}>Instrument Types</h4>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#721c24' }}>
+            <h4 style={{ margin: '0 0 5px 0', color: '#721c24' }}>Orders Count</h4>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#721c24' }}>
+              {filteredOrders.length}
+            </div>
+          </div>
+          
+          <div style={{ 
+            padding: '15px', 
+            backgroundColor: '#e2e3e5', 
+            borderRadius: '8px', 
+            border: '1px solid #d6d8db' 
+          }}>
+            <h4 style={{ margin: '0 0 5px 0', color: '#383d41' }}>Instrument Types</h4>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#383d41' }}>
               {instrumentTypes.join(', ')}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Data Grid */}
-      <div className="ag-theme-alpine" style={{ height: '600px', width: '100%' }}>
-        <AgGridReact
-          columnDefs={columnDefs}
-          rowData={filteredHoldings}
-          defaultColDef={defaultColDef}
-          pagination={true}
-          paginationPageSize={20}
-          suppressRowClickSelection={true}
-          rowSelection="multiple"
-          animateRows={true}
-          onGridReady={onGridReady}
-        />
+      {/* Holdings Grid */}
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>📊 Holdings with Market Values</h3>
+        <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
+          <AgGridReact
+            columnDefs={holdingsColumnDefs}
+            rowData={filteredHoldings}
+            defaultColDef={defaultColDef}
+            pagination={true}
+            paginationPageSize={15}
+            suppressRowClickSelection={true}
+            rowSelection="multiple"
+            animateRows={true}
+            onGridReady={onHoldingsGridReady}
+          />
+        </div>
+      </div>
+
+      {/* Orders Grid */}
+      <div style={{ marginBottom: '30px' }}>
+        <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>📋 Orders with Market Values</h3>
+        <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
+          <AgGridReact
+            columnDefs={ordersColumnDefs}
+            rowData={filteredOrders}
+            defaultColDef={defaultColDef}
+            pagination={true}
+            paginationPageSize={15}
+            suppressRowClickSelection={true}
+            rowSelection="multiple"
+            animateRows={true}
+            onGridReady={onOrdersGridReady}
+          />
+        </div>
       </div>
 
       {/* Data Pipeline Information */}
@@ -374,7 +618,7 @@ const AggregationLayer = () => {
         <h3 style={{ color: '#495057', marginBottom: '15px' }}>📊 Data Pipeline Information</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
           <div>
-            <h4 style={{ color: '#007bff', marginBottom: '10px' }}>🔄 Data Flow</h4>
+            <h4 style={{ color: '#007bff', marginBottom: '10px' }}>🔄 Holdings Data Flow</h4>
             <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
               <li><strong>Base Data:</strong> SOD Holdings + Instruments + Prices</li>
               <li><strong>Flink Processing:</strong> Stream joins and market value calculations</li>
@@ -385,17 +629,29 @@ const AggregationLayer = () => {
           </div>
           
           <div>
-            <h4 style={{ color: '#28a745', marginBottom: '10px' }}>💰 Market Value Calculations</h4>
+            <h4 style={{ color: '#28a745', marginBottom: '10px' }}>🔄 Orders Data Flow</h4>
+            <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
+              <li><strong>Base Data:</strong> Orders + Instruments + Prices</li>
+              <li><strong>Flink Processing:</strong> Stream joins and market value calculations</li>
+              <li><strong>Kafka Topic:</strong> aggregation.order-mv</li>
+              <li><strong>View Server:</strong> Consumes and caches in Redis</li>
+              <li><strong>React UI:</strong> Real-time display with auto-refresh</li>
+            </ol>
+          </div>
+          
+          <div>
+            <h4 style={{ color: '#dc3545', marginBottom: '10px' }}>💰 Market Value Calculations</h4>
             <ul style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
               <li><strong>Equity/Fund:</strong> Price × Quantity</li>
               <li><strong>Bond:</strong> (Price/100) × Face Value × Quantity</li>
               <li><strong>Currency:</strong> Quantity only</li>
               <li><strong>FX Conversion:</strong> Local → USD using exchange rates</li>
+              <li><strong>Orders:</strong> Both full order and filled quantities</li>
             </ul>
           </div>
         </div>
         
-        {filteredHoldings.length === 0 && (
+        {(filteredHoldings.length === 0 && filteredOrders.length === 0) && (
           <div style={{ 
             marginTop: '20px', 
             padding: '20px', 
@@ -405,9 +661,9 @@ const AggregationLayer = () => {
           }}>
             <h4 style={{ color: '#856404', marginBottom: '10px' }}>🚀 Getting Started</h4>
             <p style={{ margin: '0', lineHeight: '1.6', color: '#856404' }}>
-              No HoldingMV data found. To populate this view:
+              No aggregation data found. To populate this view:
               <br />1. Ensure the Mock Data Generator is running and has initialized base data
-              <br />2. Run the Flink HoldingMV job to process base data into market value records
+              <br />2. Run the Flink HoldingMV and OrderMV jobs to process base data into market value records
               <br />3. The data will automatically appear here once processing is complete
             </p>
           </div>

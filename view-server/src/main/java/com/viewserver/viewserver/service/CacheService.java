@@ -3,6 +3,7 @@ package com.viewserver.viewserver.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viewserver.aggregation.model.HoldingMV;
+import com.viewserver.aggregation.model.OrderMV;
 import com.viewserver.data.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class CacheService {
     private static final String ORDERS_PREFIX = "orders:";
     private static final String CASH_PREFIX = "cash:";
     private static final String HOLDINGS_MV_PREFIX = "holdings-mv:";
+    private static final String ORDERS_MV_PREFIX = "orders-mv:";
     
     // Time-to-live settings
     private static final Duration ACCOUNT_TTL = Duration.ofDays(30); // Static data, long TTL
@@ -42,6 +44,7 @@ public class CacheService {
     private static final Duration ORDER_TTL = Duration.ofDays(1); // Orders, daily TTL
     private static final Duration CASH_TTL = Duration.ofDays(7); // Cash movements, weekly TTL
     private static final Duration HOLDINGS_MV_TTL = Duration.ofDays(7); // Holdings MV, weekly TTL
+    private static final Duration ORDERS_MV_TTL = Duration.ofDays(1); // Orders MV, daily TTL
     
     // ==================== JSON Parsing Methods ====================
     
@@ -78,6 +81,11 @@ public class CacheService {
     public void cacheHoldingMVFromJson(String json) throws JsonProcessingException {
         HoldingMV holdingMV = objectMapper.readValue(json, HoldingMV.class);
         cacheHoldingMV(holdingMV);
+    }
+    
+    public void cacheOrderMVFromJson(String json) throws JsonProcessingException {
+        OrderMV orderMV = objectMapper.readValue(json, OrderMV.class);
+        cacheOrderMV(orderMV);
     }
     
     /**
@@ -185,6 +193,28 @@ public class CacheService {
     }
     
     /**
+     * Cache OrderMV (Order with Market Value)
+     */
+    public void cacheOrderMV(OrderMV orderMV) {
+        try {
+            // Use orderId as key since each order is unique
+            String key = ORDERS_MV_PREFIX + orderMV.getOrderId();
+            String json = objectMapper.writeValueAsString(orderMV);
+            redisTemplate.opsForValue().set(key, json, ORDERS_MV_TTL);
+            log.debug("Cached OrderMV: {} {} order for {} in account {} (Order MV USD: {}, Filled MV USD: {}) [{}]", 
+                    orderMV.isBuyOrder() ? "BUY" : "SELL",
+                    orderMV.getOrderQuantity().abs(),
+                    orderMV.getInstrumentName(), 
+                    orderMV.getAccountId(),
+                    orderMV.getOrderMarketValueUSD(), 
+                    orderMV.getFilledMarketValueUSD(),
+                    orderMV.getOrderStatus());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to cache OrderMV for order {}: {}", orderMV.getOrderId(), e.getMessage());
+        }
+    }
+    
+    /**
      * Get all accounts
      */
     public Set<Account> getAllAccounts() {
@@ -245,6 +275,23 @@ public class CacheService {
      */
     public Set<HoldingMV> getAllHoldingsMV() {
         return getByKeyPattern(HOLDINGS_MV_PREFIX + "*", HoldingMV.class);
+    }
+    
+    /**
+     * Get orders with market values for account
+     */
+    public Set<OrderMV> getOrdersMVForAccount(String accountId) {
+        // Get all OrderMV records and filter by account
+        return getAllOrdersMV().stream()
+                .filter(orderMV -> accountId.equals(orderMV.getAccountId()))
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get all orders with market values
+     */
+    public Set<OrderMV> getAllOrdersMV() {
+        return getByKeyPattern(ORDERS_MV_PREFIX + "*", OrderMV.class);
     }
     
     /**

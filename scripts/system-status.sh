@@ -14,9 +14,9 @@ echo "----------------------------"
 
 # Redis (port 6379)
 echo -n "Redis (6379): "
-if redis-cli ping >/dev/null 2>&1; then
+if docker exec viewserver-redis redis-cli ping >/dev/null 2>&1; then
     echo "✅ Running"
-    REDIS_KEYS=$(redis-cli DBSIZE 2>/dev/null || echo "0")
+    REDIS_KEYS=$(docker exec viewserver-redis redis-cli DBSIZE 2>/dev/null || echo "0")
     echo "   └─ Keys in cache: $REDIS_KEYS"
 else
     echo "❌ Not running"
@@ -24,9 +24,9 @@ fi
 
 # Kafka (port 9092)
 echo -n "Kafka (9092): "
-if kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+if docker exec viewserver-kafka kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
     echo "✅ Running"
-    TOPIC_COUNT=$(kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null | wc -l)
+    TOPIC_COUNT=$(docker exec viewserver-kafka kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null | wc -l)
     echo "   └─ Topics available: $TOPIC_COUNT"
 else
     echo "❌ Not running"
@@ -52,7 +52,16 @@ fi
 echo -n "View Server (8080): "
 if curl -s http://localhost:8080/api/health >/dev/null 2>&1; then
     echo "✅ Running"
-    echo "   └─ UI available at: http://localhost:8080/"
+    echo "   └─ Backend API available at: http://localhost:8080/"
+else
+    echo "❌ Not running"
+fi
+
+# React UI (port 3000)
+echo -n "React UI (3000): "
+if curl -s http://localhost:3000 >/dev/null 2>&1; then
+    echo "✅ Running"
+    echo "   └─ Frontend UI available at: http://localhost:3000/"
 else
     echo "❌ Not running"
 fi
@@ -62,7 +71,7 @@ echo
 # Check Port Usage
 echo "🔌 Port Usage:"
 echo "---------------"
-for port in 6379 8080 8081 9092; do
+for port in 3000 6379 8080 8081 9092; do
     echo -n "Port $port: "
     if lsof -i :$port >/dev/null 2>&1; then
         PROCESS=$(lsof -i :$port | tail -1 | awk '{print $1 " (PID: " $2 ")"}')
@@ -71,6 +80,30 @@ for port in 6379 8080 8081 9092; do
         echo "🟢 Available"
     fi
 done
+
+echo
+
+# Check Flink Jobs (if any are running)
+echo "⚡ Flink Jobs:"
+echo "--------------"
+
+# HoldingMarketValue job
+echo -n "HoldingMarketValue Job: "
+if pgrep -f "HoldingMarketValueJob" >/dev/null 2>&1; then
+    HOLDING_PID=$(pgrep -f "HoldingMarketValueJob")
+    echo "✅ Running (PID: $HOLDING_PID)"
+else
+    echo "❌ Not running"
+fi
+
+# OrderMarketValue job
+echo -n "OrderMarketValue Job: "
+if pgrep -f "OrderMarketValueJob" >/dev/null 2>&1; then
+    ORDER_PID=$(pgrep -f "OrderMarketValueJob")
+    echo "✅ Running (PID: $ORDER_PID)"
+else
+    echo "❌ Not running"
+fi
 
 echo
 
@@ -92,20 +125,25 @@ echo
 # System Summary
 echo "📋 System Summary:"
 echo "------------------"
-REDIS_OK=$(redis-cli ping >/dev/null 2>&1 && echo "1" || echo "0")
-KAFKA_OK=$(kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 && echo "1" || echo "0")
+REDIS_OK=$(docker exec viewserver-redis redis-cli ping >/dev/null 2>&1 && echo "1" || echo "0")
+KAFKA_OK=$(docker exec viewserver-kafka kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 && echo "1" || echo "0")
 MOCK_OK=$(curl -s http://localhost:8081/api/data-generation/status >/dev/null 2>&1 && echo "1" || echo "0")
 VIEW_OK=$(curl -s http://localhost:8080/api/health >/dev/null 2>&1 && echo "1" || echo "0")
+REACT_OK=$(curl -s http://localhost:3000 >/dev/null 2>&1 && echo "1" || echo "0")
+HOLDING_FLINK_OK=$(pgrep -f "HoldingMarketValueJob" >/dev/null 2>&1 && echo "1" || echo "0")
+ORDER_FLINK_OK=$(pgrep -f "OrderMarketValueJob" >/dev/null 2>&1 && echo "1" || echo "0")
 
-TOTAL_OK=$((REDIS_OK + KAFKA_OK + MOCK_OK + VIEW_OK))
+TOTAL_OK=$((REDIS_OK + KAFKA_OK + MOCK_OK + VIEW_OK + REACT_OK + HOLDING_FLINK_OK + ORDER_FLINK_OK))
 
-if [ $TOTAL_OK -eq 4 ]; then
-    echo "🎉 All services are running! System is ready."
-    echo "   🌐 Open UI: http://localhost:8080/"
+if [ $TOTAL_OK -eq 7 ]; then
+    echo "🎉 All services are running! System is fully operational."
+    echo "   🌐 React UI: http://localhost:3000/ (Modern Dashboard)"
+    echo "   🔧 Backend API: http://localhost:8080/ (Spring Boot)"
+    echo "   📊 Real-time aggregations active"
 elif [ $TOTAL_OK -eq 0 ]; then
     echo "🚨 No services are running. Run './scripts/start-all.sh' to start the system."
 else
-    echo "⚠️  Partial system running ($TOTAL_OK/4 services). Check individual services above."
+    echo "⚠️  Partial system running ($TOTAL_OK/7 services). Check individual services above."
     if [ $REDIS_OK -eq 0 ] || [ $KAFKA_OK -eq 0 ]; then
         echo "   💡 Start infrastructure first: docker-compose up -d"
     fi
@@ -114,6 +152,12 @@ else
     fi
     if [ $VIEW_OK -eq 0 ]; then
         echo "   💡 Start view server: ./scripts/start-view-server.sh"
+    fi
+    if [ $REACT_OK -eq 0 ]; then
+        echo "   💡 Start React UI: cd react-ui && npm run dev"
+    fi
+    if [ $HOLDING_FLINK_OK -eq 0 ] || [ $ORDER_FLINK_OK -eq 0 ]; then
+echo "   💡 Flink jobs not running (use dedicated startup scripts when ready)"
     fi
 fi
 

@@ -84,6 +84,16 @@ export const apiService = {
     return response.data
   },
 
+  async getOrdersMV(accountId) {
+    const response = await api.get(`/orders-mv/${accountId}`)
+    return response.data
+  },
+
+  async getAllOrdersMV() {
+    const response = await api.get('/orders-mv')
+    return response.data
+  },
+
   // Cache statistics
   async getCacheStats() {
     const response = await api.get('/stats')

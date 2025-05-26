@@ -1,6 +1,8 @@
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/aggregation/model/HoldingMV.java
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/viewserver/ViewServerApplication.java
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/viewserver/config/WebConfig.java
+/Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/viewserver/consumer/OrderMVConsumer.java
+/Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/aggregation/model/OrderMV.java
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/viewserver/controller/ViewServerController.java
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/viewserver/service/CacheService.java
 /Users/kaishen/IdeaProjects/viewserverflink/view-server/src/main/java/com/viewserver/aggregation/kafka/HoldingMVConsumer.java

@@ -81,7 +81,7 @@ services:
     name: "View Server"
     port: 8080
     url: "http://localhost:8080"
-    description: "Main API server and UI host"
+    description: "Backend API server"
     main_class: "com.viewserver.viewserver.ViewServerApplication"
     startup_command: "cd view-server && mvn spring-boot:run"
     health_check: "curl -s http://localhost:8080/api/health"
@@ -118,6 +118,25 @@ services:
         method: "GET"
         description: "Get holdings with market values for account"
 
+  react_ui:
+    name: "React UI"
+    port: 3000
+    url: "http://localhost:3000"
+    description: "Modern React frontend with real-time data visualization"
+    startup_command: "cd react-ui && npm run dev"
+    health_check: "curl -s http://localhost:3000"
+    ui_url: "http://localhost:3000/"
+    technology: "React + Vite + AG Grid"
+    features:
+      - "Real-time financial dashboard"
+      - "Interactive data grids with AG Grid"
+      - "WebSocket connections for live updates"
+      - "Modern responsive UI"
+      - "Proxy to backend API on port 8080"
+    proxy_config:
+      api_target: "http://localhost:8080"
+      websocket_target: "ws://localhost:8080"
+
 # Startup Procedures
 # ==================
 startup:
@@ -125,8 +144,10 @@ startup:
     1: "Infrastructure (Redis, Kafka)"
     2: "Mock Data Generator (port 8081)"
     3: "View Server (port 8080)"
-    4: "Initialize static data"
-    5: "Verify dynamic data streams"
+    4: "React UI (port 3000)"
+    5: "Flink Jobs (HoldingMV + OrderMV)"
+    6: "Initialize static data"
+    7: "Verify dynamic data streams"
     
   scripts:
     infrastructure: "./scripts/start-infrastructure.sh"
@@ -140,6 +161,7 @@ startup:
 # ===============
 ports:
   reserved:
+    3000: "React UI"
     6379: "Redis"
     8080: "View Server"
     8081: "Mock Data Generator" 
@@ -179,15 +201,24 @@ data:
 # ==========================
 monitoring:
   ui:
-    url: "http://localhost:8080/"
-    features:
-      - "Cache statistics overview"
-      - "Real-time data grids"
-      - "Individual refresh buttons"
-      - "Account selectors"
-      - "Auto-refresh capability"
-      - "Error handling"
-      - "Status badges"
+    react_ui:
+      url: "http://localhost:3000/"
+      description: "Modern React dashboard (Primary UI)"
+      features:
+        - "Real-time financial dashboard"
+        - "Interactive AG Grid data tables"
+        - "WebSocket live updates"
+        - "Modern responsive design"
+        - "Account/instrument filtering"
+        - "Market value calculations"
+    backend_ui:
+      url: "http://localhost:8080/"
+      description: "Spring Boot backend UI (Admin/API)"
+      features:
+        - "Cache statistics overview"
+        - "API endpoint testing"
+        - "Health checks"
+        - "Basic data views"
   
   redis_keys:
     check_command: "redis-cli DBSIZE"
@@ -212,8 +243,9 @@ troubleshooting:
       solution: "Check Maven dependencies and import statements"
   
   diagnostic_commands:
-    check_all_ports: "lsof -i :6379 && lsof -i :8080 && lsof -i :8081 && lsof -i :9092"
+    check_all_ports: "lsof -i :3000 && lsof -i :6379 && lsof -i :8080 && lsof -i :8081 && lsof -i :9092"
     check_java_processes: "ps aux | grep java"
+    check_node_processes: "ps aux | grep node"
     check_redis_data: "redis-cli DBSIZE"
     check_kafka_topics: "kafka-topics --bootstrap-server localhost:9092 --list"
 
