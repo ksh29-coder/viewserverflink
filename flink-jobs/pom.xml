@@ -43,6 +43,12 @@
         
         <dependency>
             <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.apache.flink</groupId>
             <artifactId>flink-connector-kafka</artifactId>
             <version>3.1.0-1.18</version>
         </dependency>
@@ -150,6 +156,19 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            
+            <!-- Maven Exec Plugin for running jobs -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>com.viewserver.flink.HoldingMarketValueJob</mainClass>
+                    <includeProjectDependencies>true</includeProjectDependencies>
+                    <includePluginDependencies>false</includePluginDependencies>
+                    <classpathScope>compile</classpathScope>
+                </configuration>
             </plugin>
         </plugins>
     </build>
