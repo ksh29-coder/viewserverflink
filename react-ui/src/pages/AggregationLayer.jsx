@@ -10,56 +10,53 @@ const AggregationLayer = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedAccount, setSelectedAccount] = useState('')
+  const [selectedInstrument, setSelectedInstrument] = useState('')
   const [accounts, setAccounts] = useState([])
+  const [instruments, setInstruments] = useState([])
   const [lastRefresh, setLastRefresh] = useState(new Date())
   
-  // Grid state management for both grids
+  // Grid refs
   const holdingsGridRef = useRef()
   const ordersGridRef = useRef()
-  const [holdingsGridState, setHoldingsGridState] = useState(null)
-  const [ordersGridState, setOrdersGridState] = useState(null)
+
+  // Load filters from localStorage on component mount
+  useEffect(() => {
+    const savedAccountFilter = localStorage.getItem('aggregation-account-filter')
+    const savedInstrumentFilter = localStorage.getItem('aggregation-instrument-filter')
+    
+    if (savedAccountFilter) {
+      setSelectedAccount(savedAccountFilter)
+    }
+    if (savedInstrumentFilter) {
+      setSelectedInstrument(savedInstrumentFilter)
+    }
+  }, [])
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('aggregation-account-filter', selectedAccount)
+  }, [selectedAccount])
+
+  useEffect(() => {
+    localStorage.setItem('aggregation-instrument-filter', selectedInstrument)
+  }, [selectedInstrument])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      // Save current grid states before refreshing data
-      if (holdingsGridRef.current && holdingsGridRef.current.api) {
-        try {
-          const currentState = {
-            filterModel: holdingsGridRef.current.api.getFilterModel ? holdingsGridRef.current.api.getFilterModel() : null,
-            sortModel: holdingsGridRef.current.api.getSortModel ? holdingsGridRef.current.api.getSortModel() : null,
-            columnState: holdingsGridRef.current.api.getColumnState ? holdingsGridRef.current.api.getColumnState() : null
-          }
-          setHoldingsGridState(currentState)
-        } catch (gridError) {
-          console.warn('Failed to save holdings grid state:', gridError)
-        }
-      }
-      
-      if (ordersGridRef.current && ordersGridRef.current.api) {
-        try {
-          const currentState = {
-            filterModel: ordersGridRef.current.api.getFilterModel ? ordersGridRef.current.api.getFilterModel() : null,
-            sortModel: ordersGridRef.current.api.getSortModel ? ordersGridRef.current.api.getSortModel() : null,
-            columnState: ordersGridRef.current.api.getColumnState ? ordersGridRef.current.api.getColumnState() : null
-          }
-          setOrdersGridState(currentState)
-        } catch (gridError) {
-          console.warn('Failed to save orders grid state:', gridError)
-        }
-      }
-      
-      const [holdingsMVData, ordersMVData, accountsData] = await Promise.all([
+      const [holdingsMVData, ordersMVData, accountsData, instrumentsData] = await Promise.all([
         apiService.getAllHoldingsMV(),
         apiService.getAllOrdersMV(),
-        apiService.getAccounts()
+        apiService.getAccounts(),
+        apiService.getInstruments()
       ])
       
       setHoldingsMV(holdingsMVData)
       setOrdersMV(ordersMVData)
       setAccounts(accountsData)
+      setInstruments(instrumentsData)
       setLastRefresh(new Date())
     } catch (err) {
       setError('Failed to fetch aggregation data: ' + err.message)
@@ -69,118 +66,34 @@ const AggregationLayer = () => {
     }
   }
 
-  // Restore grid state after data update
   const onHoldingsGridReady = (params) => {
     holdingsGridRef.current = params
-    
-    // Restore state if it exists
-    if (holdingsGridState) {
-      setTimeout(() => {
-        if (params.api) {
-          try {
-            if (holdingsGridState.filterModel && params.api.setFilterModel) {
-              params.api.setFilterModel(holdingsGridState.filterModel)
-            }
-            if (holdingsGridState.sortModel && params.api.setSortModel) {
-              params.api.setSortModel(holdingsGridState.sortModel)
-            }
-            if (holdingsGridState.columnState && params.api.applyColumnState) {
-              params.api.applyColumnState({ state: holdingsGridState.columnState })
-            }
-          } catch (gridError) {
-            console.warn('Failed to restore holdings grid state:', gridError)
-          }
-        }
-      }, 100)
-    }
   }
 
   const onOrdersGridReady = (params) => {
     ordersGridRef.current = params
-    
-    // Restore state if it exists
-    if (ordersGridState) {
-      setTimeout(() => {
-        if (params.api) {
-          try {
-            if (ordersGridState.filterModel && params.api.setFilterModel) {
-              params.api.setFilterModel(ordersGridState.filterModel)
-            }
-            if (ordersGridState.sortModel && params.api.setSortModel) {
-              params.api.setSortModel(ordersGridState.sortModel)
-            }
-            if (ordersGridState.columnState && params.api.applyColumnState) {
-              params.api.applyColumnState({ state: ordersGridState.columnState })
-            }
-          } catch (gridError) {
-            console.warn('Failed to restore orders grid state:', gridError)
-          }
-        }
-      }, 100)
-    }
   }
 
   useEffect(() => {
     fetchData()
-    
-    // Auto-refresh every 10 seconds
-    const interval = setInterval(fetchData, 10000)
-    return () => clearInterval(interval)
   }, [])
-
-  // Restore grid states when data changes
-  useEffect(() => {
-    if (holdingsGridRef.current && holdingsGridRef.current.api && holdingsGridState) {
-      setTimeout(() => {
-        try {
-          if (holdingsGridState.filterModel && holdingsGridRef.current.api.setFilterModel) {
-            holdingsGridRef.current.api.setFilterModel(holdingsGridState.filterModel)
-          }
-          if (holdingsGridState.sortModel && holdingsGridRef.current.api.setSortModel) {
-            holdingsGridRef.current.api.setSortModel(holdingsGridState.sortModel)
-          }
-          if (holdingsGridState.columnState && holdingsGridRef.current.api.applyColumnState) {
-            holdingsGridRef.current.api.applyColumnState({ state: holdingsGridState.columnState })
-          }
-        } catch (gridError) {
-          console.warn('Failed to restore holdings grid state in useEffect:', gridError)
-        }
-      }, 100)
-    }
-  }, [holdingsMV, holdingsGridState])
-
-  useEffect(() => {
-    if (ordersGridRef.current && ordersGridRef.current.api && ordersGridState) {
-      setTimeout(() => {
-        try {
-          if (ordersGridState.filterModel && ordersGridRef.current.api.setFilterModel) {
-            ordersGridRef.current.api.setFilterModel(ordersGridState.filterModel)
-          }
-          if (ordersGridState.sortModel && ordersGridRef.current.api.setSortModel) {
-            ordersGridRef.current.api.setSortModel(ordersGridState.sortModel)
-          }
-          if (ordersGridState.columnState && ordersGridRef.current.api.applyColumnState) {
-            ordersGridRef.current.api.applyColumnState({ state: ordersGridState.columnState })
-          }
-        } catch (gridError) {
-          console.warn('Failed to restore orders grid state in useEffect:', gridError)
-        }
-      }, 100)
-    }
-  }, [ordersMV, ordersGridState])
 
   const handleRefresh = () => {
     fetchData()
   }
 
-  // Filter data by selected account
-  const filteredHoldings = selectedAccount 
-    ? holdingsMV.filter(holding => holding.accountId === selectedAccount)
-    : holdingsMV
+  // Filter data by selected account and instrument
+  const filteredHoldings = holdingsMV.filter(holding => {
+    const accountMatch = !selectedAccount || holding.accountId === selectedAccount
+    const instrumentMatch = !selectedInstrument || holding.instrumentId === selectedInstrument
+    return accountMatch && instrumentMatch
+  })
 
-  const filteredOrders = selectedAccount 
-    ? ordersMV.filter(order => order.accountId === selectedAccount)
-    : ordersMV
+  const filteredOrders = ordersMV.filter(order => {
+    const accountMatch = !selectedAccount || order.accountId === selectedAccount
+    const instrumentMatch = !selectedInstrument || order.instrumentId === selectedInstrument
+    return accountMatch && instrumentMatch
+  })
 
   // Calculate summary statistics for holdings
   const totalHoldingsMarketValueUSD = filteredHoldings.reduce((sum, holding) => {
@@ -306,10 +219,11 @@ const AggregationLayer = () => {
     },
     { 
       headerName: 'Side', 
-      field: 'side', 
+      field: 'buyOrder', 
       width: 80,
+      valueFormatter: params => params.value ? 'BUY' : 'SELL',
       cellStyle: params => ({
-        backgroundColor: params.value === 'BUY' ? '#d4edda' : '#f8d7da',
+        backgroundColor: params.value ? '#d4edda' : '#f8d7da',
         fontWeight: 'bold'
       })
     },
@@ -320,7 +234,7 @@ const AggregationLayer = () => {
     },
     { 
       headerName: 'Quantity', 
-      field: 'quantity', 
+      field: 'orderQuantity', 
       width: 120,
       valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
     },
@@ -372,7 +286,7 @@ const AggregationLayer = () => {
     },
     { 
       headerName: 'Status', 
-      field: 'status', 
+      field: 'orderStatus', 
       width: 100,
       cellStyle: params => {
         const status = params.value;
@@ -384,7 +298,7 @@ const AggregationLayer = () => {
     },
     { 
       headerName: 'Order Time', 
-      field: 'orderTimestamp', 
+      field: 'timestamp', 
       width: 180,
       valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
     },
@@ -431,11 +345,16 @@ const AggregationLayer = () => {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ 
+      padding: '20px',
+      height: '100vh',
+      overflowY: 'auto',
+      overflowX: 'hidden'
+    }}>
       <div style={{ marginBottom: '20px' }}>
         <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>Aggregation Layer - Holdings & Orders with Market Values</h2>
         
-        {/* Controls Section - Account Filter and Refresh Button */}
+        {/* Controls Section - Account Filter, Instrument Filter and Refresh Button */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -444,7 +363,8 @@ const AggregationLayer = () => {
           padding: '15px',
           backgroundColor: '#f8f9fa',
           borderRadius: '8px',
-          border: '1px solid #dee2e6'
+          border: '1px solid #dee2e6',
+          flexWrap: 'wrap'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <label htmlFor="account-filter" style={{ fontWeight: 'bold', color: '#495057' }}>
@@ -471,6 +391,31 @@ const AggregationLayer = () => {
             </select>
           </div>
           
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label htmlFor="instrument-filter" style={{ fontWeight: 'bold', color: '#495057' }}>
+              Filter by Instrument:
+            </label>
+            <select
+              id="instrument-filter"
+              value={selectedInstrument}
+              onChange={(e) => setSelectedInstrument(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                backgroundColor: 'white',
+                minWidth: '200px'
+              }}
+            >
+              <option value="">All Instruments</option>
+              {instruments.map(instrument => (
+                <option key={instrument.instrumentId} value={instrument.instrumentId}>
+                  {instrument.instrumentId} - {instrument.instrumentName}
+                </option>
+              ))}
+            </select>
+          </div>
+          
           <button
             onClick={handleRefresh}
             style={{
@@ -489,6 +434,54 @@ const AggregationLayer = () => {
             onMouseOut={(e) => e.target.style.backgroundColor = '#28a745'}
           >
             🔄 Refresh Data
+          </button>
+          
+          <button
+            onClick={() => {
+              setSelectedAccount('')
+              setSelectedInstrument('')
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#545b62'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+          >
+            🗑️ Clear Filters
+          </button>
+          
+          <button
+            onClick={() => {
+              const ordersSection = document.querySelector('h3[style*="color: rgb(0, 123, 255)"]');
+              if (ordersSection) {
+                ordersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+          >
+            📋 Jump to Orders Grid
           </button>
           
           <div style={{ color: '#6c757d', fontSize: '14px' }}>
@@ -578,15 +571,24 @@ const AggregationLayer = () => {
       </div>
 
       {/* Holdings Grid */}
-      <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>📊 Holdings with Market Values</h3>
-        <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>
+          📊 Holdings with Market Values ({filteredHoldings.length} holdings)
+          {(selectedAccount || selectedInstrument) && (
+            <span style={{ fontSize: '14px', color: '#6c757d', fontWeight: 'normal' }}>
+              {' '}- Filtered by {selectedAccount && `Account: ${selectedAccount}`}
+              {selectedAccount && selectedInstrument && ', '}
+              {selectedInstrument && `Instrument: ${selectedInstrument}`}
+            </span>
+          )}
+        </h3>
+        <div className="ag-theme-alpine" style={{ height: '500px', width: '100%' }}>
           <AgGridReact
             columnDefs={holdingsColumnDefs}
             rowData={filteredHoldings}
             defaultColDef={defaultColDef}
             pagination={true}
-            paginationPageSize={15}
+            paginationPageSize={20}
             suppressRowClickSelection={true}
             rowSelection="multiple"
             animateRows={true}
@@ -596,15 +598,35 @@ const AggregationLayer = () => {
       </div>
 
       {/* Orders Grid */}
-      <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>📋 Orders with Market Values</h3>
-        <div className="ag-theme-alpine" style={{ height: '400px', width: '100%' }}>
+      <div style={{ 
+        marginBottom: '20px',
+        border: '2px solid #007bff',
+        borderRadius: '8px',
+        padding: '15px',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 10px 0', 
+          color: '#007bff',
+          fontSize: '20px',
+          fontWeight: 'bold'
+        }}>
+          📋 Orders with Market Values ({filteredOrders.length} orders)
+          {(selectedAccount || selectedInstrument) && (
+            <span style={{ fontSize: '14px', color: '#6c757d', fontWeight: 'normal' }}>
+              {' '}- Filtered by {selectedAccount && `Account: ${selectedAccount}`}
+              {selectedAccount && selectedInstrument && ', '}
+              {selectedInstrument && `Instrument: ${selectedInstrument}`}
+            </span>
+          )}
+        </h3>
+        <div className="ag-theme-alpine" style={{ height: '500px', width: '100%' }}>
           <AgGridReact
             columnDefs={ordersColumnDefs}
             rowData={filteredOrders}
             defaultColDef={defaultColDef}
             pagination={true}
-            paginationPageSize={15}
+            paginationPageSize={20}
             suppressRowClickSelection={true}
             rowSelection="multiple"
             animateRows={true}
