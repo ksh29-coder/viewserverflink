@@ -1,7 +1,7 @@
-# Account Overview Implementation Plan
+# Account Overview Implementation Plan - Simplified
 
 ## Overview
-This document outlines the complete implementation plan for the Account Overview feature, including the unified Flink job for price consistency, dynamic Kafka Streams views, and real-time WebSocket grid updates.
+This document outlines the **simplified** implementation plan for the Account Overview feature. The unified Flink job provides price-consistent data, eliminating the need for complex stream processing in Kafka Streams. This reduces implementation complexity by ~70%.
 
 ## Phase 1: Unified Flink Job (Price Consistency Foundation)
 
@@ -77,7 +77,7 @@ flink-jobs/src/main/java/com/viewserver/flink/
 - **Integration Tests**: Ensure same priceTimestamp for same instrumentId
 - **Performance Tests**: Compare latency vs. separate jobs
 
-## Phase 2: Account Overview Backend Services
+## Phase 2: Simplified Account Overview Backend Services
 
 ### 2.1 Data Models
 **Location**: `view-server/src/main/java/com/viewserver/computation/model/`
@@ -87,7 +87,6 @@ flink-jobs/src/main/java/com/viewserver/flink/
 AccountOverviewRequest.java     # User selection input
 AccountOverviewResult.java      # Aggregated output
 ViewMetadata.java              # View lifecycle tracking
-GridChange.java                # WebSocket change messages
 ```
 
 #### Implementation:
@@ -112,145 +111,172 @@ public class AccountOverviewResult {
     private LocalDateTime lastUpdated;
     private LocalDateTime priceTimestamp;      // For validation
 }
+
+@Data
+@Builder
+public class ViewMetadata {
+    private String viewId;
+    private AccountOverviewRequest request;
+    private LocalDateTime createdAt;
+    private KafkaStreams streams;              // Kafka Streams instance
+    private String sessionId;
+}
 ```
 
-### 2.2 Core Services
+### 2.2 Simplified Core Services
 **Location**: `view-server/src/main/java/com/viewserver/computation/service/`
 
 #### Files to Create:
 ```
-AccountOverviewViewService.java     # Dynamic view creation
+AccountOverviewViewService.java     # Simplified dynamic view creation
 ViewLifecycleManager.java          # View management
-ChangeDetectionService.java        # Incremental updates
-PriceConsistencyValidator.java     # Timestamp validation
 ```
 
-#### Key Implementation - Dynamic View Creation:
+#### Key Implementation - Simplified Dynamic View Creation:
 ```java
 @Service
 public class AccountOverviewViewService {
+    
+    private final ViewLifecycleManager viewLifecycleManager;
+    private final AccountOverviewWebSocketHandler webSocketHandler;
     
     public String createView(AccountOverviewRequest request) {
         // 1. Generate unique viewId
         String viewId = generateViewId(request);
         
-        // 2. Create dynamic Kafka Streams topology
+        // 2. Create simplified Kafka Streams topology
         StreamsBuilder builder = new StreamsBuilder();
         
-        // 3. Consume unified-mv topic
-        KStream<String, UnifiedMarketValue> unifiedStream = builder.stream("aggregation.unified-mv");
+        // 3. Consume unified-mv topic (data already consistent!)
+        KTable<String, UnifiedMarketValue> unifiedTable = builder.table("aggregation.unified-mv");
         
-        // 4. Split into holdings and orders
-        KStream<String, HoldingMV> holdings = unifiedStream
-            .filter((key, value) -> "HOLDING".equals(value.getType()))
-            .mapValues(value -> value.getHoldingMV());
-            
-        KStream<String, OrderMV> orders = unifiedStream
-            .filter((key, value) -> "ORDER".equals(value.getType()))
-            .mapValues(value -> value.getOrderMV());
+        // 4. Simple filtering and grouping - NO COMPLEX JOINS!
+        KTable<String, AccountOverviewResult> results = unifiedTable
+            .filter((key, value) -> 
+                // Filter by selected accounts
+                request.getAccountIds().contains(value.getAccountId())
+            )
+            .groupBy((key, value) -> 
+                // Dynamic grouping based on user selection
+                buildGroupKey(value, request.getGroupByFields())
+            )
+            .aggregate(
+                AccountOverviewResult::new,
+                (key, value, aggregate) -> 
+                    // Direct aggregation - no complex state management
+                    updateAggregate(aggregate, value, request.getExposureTypes())
+            );
         
-        // 5. Join with price timestamp validation
-        KStream<String, JoinedData> joined = holdings.leftJoin(orders,
-            (holding, order) -> new JoinedData(holding, order),
-            JoinWindows.of(Duration.ofSeconds(1)),
-            StreamJoined.with(Serdes.String(), holdingSerde, orderSerde)
-        ).filter((key, joined) -> validatePriceConsistency(joined));
-        
-        // 6. Filter by selected accounts
-        KStream<String, JoinedData> filtered = joined
-            .filter((key, data) -> request.getAccountIds().contains(data.getAccountId()));
-        
-        // 7. Dynamic grouping
-        KGroupedStream<String, JoinedData> grouped = filtered
-            .groupBy((key, data) -> buildGroupKey(data, request.getGroupByFields()));
-        
-        // 8. Aggregate exposures
-        KTable<String, AccountOverviewResult> results = grouped.aggregate(
-            AccountOverviewResult::new,
-            (key, data, aggregate) -> updateAggregate(aggregate, data, request.getExposureTypes())
-        );
-        
-        // 9. Enable change detection
+        // 5. Send updates directly to WebSocket (built-in change detection!)
         results.toStream().foreach((key, result) -> 
-            changeDetectionService.detectChanges(viewId, key, result));
+            webSocketHandler.sendUpdate(viewId, key, result));
         
-        // 10. Start topology
+        // 6. Start topology
         KafkaStreams streams = new KafkaStreams(builder.build(), getStreamsConfig(viewId));
         streams.start();
         
-        // 11. Store view metadata
+        // 7. Store view metadata
         viewLifecycleManager.registerView(viewId, request, streams);
         
         return viewId;
     }
+    
+    private String buildGroupKey(UnifiedMarketValue value, List<String> groupByFields) {
+        // Build composite key based on selected fields
+        return groupByFields.stream()
+            .map(field -> getFieldValue(value, field))
+            .collect(Collectors.joining("#"));
+    }
+    
+    private AccountOverviewResult updateAggregate(AccountOverviewResult aggregate, 
+                                                UnifiedMarketValue value, 
+                                                List<String> exposureTypes) {
+        // Simple aggregation logic - data is already consistent!
+        if ("HOLDING".equals(value.getType()) && value.getHoldingMV() != null) {
+            HoldingMV holding = value.getHoldingMV();
+            if (exposureTypes.contains("SOD")) {
+                aggregate.setSodNavUSD(aggregate.getSodNavUSD().add(holding.getMarketValueUSD()));
+            }
+            if (exposureTypes.contains("Current")) {
+                aggregate.setCurrentNavUSD(aggregate.getCurrentNavUSD().add(holding.getMarketValueUSD()));
+            }
+            if (exposureTypes.contains("Expected")) {
+                aggregate.setExpectedNavUSD(aggregate.getExpectedNavUSD().add(holding.getMarketValueUSD()));
+            }
+        }
+        
+        if ("ORDER".equals(value.getType()) && value.getOrderMV() != null) {
+            OrderMV order = value.getOrderMV();
+            if (exposureTypes.contains("Current")) {
+                aggregate.setCurrentNavUSD(aggregate.getCurrentNavUSD().add(order.getFilledMarketValueUSD()));
+            }
+            if (exposureTypes.contains("Expected")) {
+                aggregate.setExpectedNavUSD(aggregate.getExpectedNavUSD().add(order.getOrderMarketValueUSD()));
+            }
+        }
+        
+        aggregate.setLastUpdated(LocalDateTime.now());
+        aggregate.setPriceTimestamp(value.getPriceTimestamp());
+        return aggregate;
+    }
 }
 ```
 
-### 2.3 Change Detection Service
+### 2.3 Simplified View Lifecycle Manager
 ```java
 @Service
-public class ChangeDetectionService {
+public class ViewLifecycleManager {
     
-    private final Map<String, Map<String, AccountOverviewResult>> viewCache = new ConcurrentHashMap<>();
-    private final AccountOverviewWebSocketHandler webSocketHandler;
+    private final Map<String, ViewMetadata> activeViews = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
     
-    public void detectChanges(String viewId, String rowKey, AccountOverviewResult newResult) {
-        AccountOverviewResult oldResult = getFromCache(viewId, rowKey);
-        
-        List<GridChange> changes = calculateChanges(rowKey, oldResult, newResult);
-        if (!changes.isEmpty()) {
-            // Batch changes for 100ms
-            batchAndSendChanges(viewId, changes);
-        }
-        
-        updateCache(viewId, rowKey, newResult);
+    public void registerView(String viewId, AccountOverviewRequest request, KafkaStreams streams) {
+        ViewMetadata metadata = ViewMetadata.builder()
+            .viewId(viewId)
+            .request(request)
+            .createdAt(LocalDateTime.now())
+            .streams(streams)
+            .sessionId(request.getSessionId())
+            .build();
+            
+        activeViews.put(viewId, metadata);
+        log.info("Registered view: {} for session: {}", viewId, request.getSessionId());
     }
     
-    private List<GridChange> calculateChanges(String rowKey, 
-                                            AccountOverviewResult oldResult, 
-                                            AccountOverviewResult newResult) {
-        List<GridChange> changes = new ArrayList<>();
-        
-        if (oldResult == null) {
-            // New row
-            changes.add(GridChange.builder()
-                .changeType(ChangeType.INSERT)
-                .rowKey(rowKey)
-                .changedFields(getAllFields(newResult))
-                .build());
-        } else {
-            // Check each field for changes
-            Map<String, FieldChange> fieldChanges = new HashMap<>();
-            
-            if (!Objects.equals(oldResult.getSodNavUSD(), newResult.getSodNavUSD())) {
-                fieldChanges.put("sodNavUSD", new FieldChange(oldResult.getSodNavUSD(), newResult.getSodNavUSD()));
-            }
-            // ... check other fields
-            
-            if (!fieldChanges.isEmpty()) {
-                changes.add(GridChange.builder()
-                    .changeType(ChangeType.UPDATE)
-                    .rowKey(rowKey)
-                    .changedFields(fieldChanges)
-                    .build());
-            }
+    public void deleteView(String viewId) {
+        ViewMetadata metadata = activeViews.remove(viewId);
+        if (metadata != null) {
+            // Stop Kafka Streams instance
+            metadata.getStreams().close();
+            log.info("Deleted view: {}", viewId);
         }
-        
-        return changes;
+    }
+    
+    public void scheduleViewCleanup(String viewId, Duration delay) {
+        scheduler.schedule(() -> deleteView(viewId), delay.toMillis(), TimeUnit.MILLISECONDS);
+        log.info("Scheduled cleanup for view: {} in {}", viewId, delay);
+    }
+    
+    public List<ViewMetadata> getActiveViews() {
+        return new ArrayList<>(activeViews.values());
+    }
+    
+    public AccountOverviewRequest getViewConfig(String viewId) {
+        ViewMetadata metadata = activeViews.get(viewId);
+        return metadata != null ? metadata.getRequest() : null;
     }
 }
 ```
 
-## Phase 3: WebSocket Real-Time Communication
+## Phase 3: Simplified WebSocket Communication
 
-### 3.1 WebSocket Handler
+### 3.1 Simplified WebSocket Handler
 **Location**: `view-server/src/main/java/com/viewserver/websocket/`
 
 #### Files to Create:
 ```
-AccountOverviewWebSocketHandler.java    # Main WebSocket handler
+AccountOverviewWebSocketHandler.java    # Simplified WebSocket handler
 WebSocketSessionManager.java           # Session management
-MessageBatcher.java                    # 100ms batching logic
 ```
 
 #### Implementation:
@@ -259,74 +285,88 @@ MessageBatcher.java                    # 100ms batching logic
 public class AccountOverviewWebSocketHandler extends TextWebSocketHandler {
     
     private final ViewLifecycleManager viewLifecycleManager;
-    private final MessageBatcher messageBatcher;
+    private final AccountOverviewViewService viewService;
     private final Map<String, String> sessionToViewId = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> viewToSession = new ConcurrentHashMap<>();
     
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         log.info("WebSocket connection established: {}", session.getId());
-        // Session registered when view is created
     }
     
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        // Handle view creation requests
         AccountOverviewRequest request = parseRequest(message.getPayload());
-        String viewId = accountOverviewViewService.createView(request);
+        request.setSessionId(session.getId());
         
+        // Delete old view if exists
+        String oldViewId = sessionToViewId.get(session.getId());
+        if (oldViewId != null) {
+            viewLifecycleManager.deleteView(oldViewId);
+            viewToSession.remove(oldViewId);
+        }
+        
+        // Create new view
+        String viewId = viewService.createView(request);
         sessionToViewId.put(session.getId(), viewId);
+        viewToSession.put(viewId, session);
         
-        // Send initial data
-        sendInitialData(session, viewId);
+        log.info("Created view: {} for session: {}", viewId, session.getId());
     }
     
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String viewId = sessionToViewId.remove(session.getId());
         if (viewId != null) {
+            viewToSession.remove(viewId);
             // Schedule cleanup after 1 minute
             viewLifecycleManager.scheduleViewCleanup(viewId, Duration.ofMinutes(1));
         }
+        log.info("WebSocket connection closed: {}", session.getId());
     }
     
-    public void sendChanges(String viewId, List<GridChange> changes) {
-        // Find session for viewId and send batched changes
-        messageBatcher.batchChanges(viewId, changes);
-    }
-}
-```
-
-### 3.2 Message Batching
-```java
-@Component
-public class MessageBatcher {
-    
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
-    private final Map<String, List<GridChange>> pendingChanges = new ConcurrentHashMap<>();
-    
-    public void batchChanges(String viewId, List<GridChange> changes) {
-        pendingChanges.computeIfAbsent(viewId, k -> new ArrayList<>()).addAll(changes);
-        
-        // Schedule send after 100ms
-        scheduler.schedule(() -> sendBatchedChanges(viewId), 100, TimeUnit.MILLISECONDS);
+    // Called directly from Kafka Streams (no batching needed!)
+    public void sendUpdate(String viewId, String rowKey, AccountOverviewResult result) {
+        WebSocketSession session = viewToSession.get(viewId);
+        if (session != null && session.isOpen()) {
+            try {
+                GridUpdateMessage message = GridUpdateMessage.builder()
+                    .type("GRID_UPDATE")
+                    .viewId(viewId)
+                    .rowKey(rowKey)
+                    .data(result)
+                    .build();
+                    
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            } catch (Exception e) {
+                log.error("Failed to send update for view: {}", viewId, e);
+            }
+        }
     }
     
-    private void sendBatchedChanges(String viewId) {
-        List<GridChange> changes = pendingChanges.remove(viewId);
-        if (changes != null && !changes.isEmpty()) {
-            GridUpdateMessage message = GridUpdateMessage.builder()
-                .type("GRID_UPDATE")
-                .viewId(viewId)
-                .changes(changes)
-                .build();
-                
-            webSocketHandler.sendToView(viewId, message);
+    private AccountOverviewRequest parseRequest(String payload) {
+        try {
+            return objectMapper.readValue(payload, AccountOverviewRequest.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse request", e);
         }
     }
 }
 ```
 
-## Phase 4: Frontend Implementation
+### 3.2 Simplified Message Model
+```java
+@Data
+@Builder
+public class GridUpdateMessage {
+    private String type;                    // "GRID_UPDATE"
+    private String viewId;
+    private String rowKey;
+    private AccountOverviewResult data;     // Direct data (no complex change detection)
+}
+```
+
+## Phase 4: Frontend Implementation (Unchanged)
 
 ### 4.1 React Components
 **Location**: `react-ui/src/pages/AccountOverview/`
@@ -346,9 +386,9 @@ hooks/
 └── useGridUpdates.ts           # Incremental updates
 ```
 
-### 4.2 Key Implementation - Dynamic Grid
+### 4.2 Simplified Grid Updates
 ```typescript
-// DynamicGrid.tsx
+// DynamicGrid.tsx - Simplified update handling
 const DynamicGrid: React.FC<{ viewId: string }> = ({ viewId }) => {
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
   const [rowData, setRowData] = useState<any[]>([]);
@@ -358,45 +398,33 @@ const DynamicGrid: React.FC<{ viewId: string }> = ({ viewId }) => {
     if (lastMessage) {
       const message = JSON.parse(lastMessage.data);
       if (message.type === 'GRID_UPDATE') {
-        applyIncrementalUpdates(message.changes);
+        // Simple update - just replace the row data
+        updateRow(message.rowKey, message.data);
       }
     }
   }, [lastMessage]);
   
-  const applyIncrementalUpdates = (changes: GridChange[]) => {
-    changes.forEach(change => {
-      switch (change.changeType) {
-        case 'INSERT':
-          addNewRow(change);
-          break;
-        case 'UPDATE':
-          updateExistingRow(change);
-          break;
-        case 'DELETE':
-          removeRow(change.rowKey);
-          break;
-      }
-    });
-  };
-  
-  const updateExistingRow = (change: GridChange) => {
+  const updateRow = (rowKey: string, newData: AccountOverviewResult) => {
     if (!gridApi) return;
     
-    const rowNode = gridApi.getRowNode(change.rowKey);
+    const rowNode = gridApi.getRowNode(rowKey);
     if (rowNode) {
-      Object.entries(change.changedFields).forEach(([field, fieldChange]) => {
-        rowNode.setDataValue(field, fieldChange.newValue);
-        highlightChangedCell(rowNode, field);
-      });
+      // Update existing row
+      rowNode.setData(newData);
+      highlightChangedRow(rowNode);
+    } else {
+      // Add new row
+      gridApi.applyTransaction({ add: [{ ...newData, groupKey: rowKey }] });
     }
   };
   
-  const highlightChangedCell = (rowNode: RowNode, field: string) => {
-    const cellElement = gridApi?.getCellElement(rowNode.rowIndex!, field);
-    if (cellElement) {
-      cellElement.classList.add('cell-changed');
+  const highlightChangedRow = (rowNode: RowNode) => {
+    // Simple row highlighting
+    const rowElement = gridApi?.getRowElement(rowNode.rowIndex!);
+    if (rowElement) {
+      rowElement.classList.add('row-changed');
       setTimeout(() => {
-        cellElement.classList.remove('cell-changed');
+        rowElement.classList.remove('row-changed');
       }, 2000);
     }
   };
@@ -415,36 +443,7 @@ const DynamicGrid: React.FC<{ viewId: string }> = ({ viewId }) => {
 };
 ```
 
-### 4.3 CSS for Visual Indicators
-```css
-/* AccountOverview.css */
-.cell-changed {
-  background-color: #90EE90 !important; /* Light green */
-  transition: background-color 2s ease-out;
-}
-
-.ag-cell {
-  transition: background-color 0.3s ease-in;
-}
-
-.account-overview-container {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.controls-panel {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-}
-```
-
-## Phase 5: API Endpoints
+## Phase 5: Simplified API Endpoints
 
 ### 5.1 REST Controllers
 **Location**: `view-server/src/main/java/com/viewserver/controller/`
@@ -452,7 +451,6 @@ const DynamicGrid: React.FC<{ viewId: string }> = ({ viewId }) => {
 #### Files to Create:
 ```
 AccountOverviewController.java      # Main API endpoints
-ViewManagementController.java       # View lifecycle APIs
 ```
 
 #### Implementation:
@@ -461,14 +459,17 @@ ViewManagementController.java       # View lifecycle APIs
 @RequestMapping("/api/account-overview")
 public class AccountOverviewController {
     
+    private final AccountOverviewViewService viewService;
+    private final ViewLifecycleManager viewLifecycleManager;
+    
     @PostMapping("/create-view")
     public ResponseEntity<ViewResponse> createView(@RequestBody AccountOverviewRequest request) {
-        String viewId = accountOverviewViewService.createView(request);
+        String viewId = viewService.createView(request);
         return ResponseEntity.ok(ViewResponse.builder().viewId(viewId).build());
     }
     
     @GetMapping("/active-views")
-    public ResponseEntity<List<ActiveViewInfo>> getActiveViews() {
+    public ResponseEntity<List<ViewMetadata>> getActiveViews() {
         return ResponseEntity.ok(viewLifecycleManager.getActiveViews());
     }
     
@@ -484,8 +485,12 @@ public class AccountOverviewController {
     }
     
     @GetMapping("/groupby-fields")
-    public ResponseEntity<List<GroupByField>> getAvailableGroupByFields() {
-        return ResponseEntity.ok(getGroupByFields());
+    public ResponseEntity<List<String>> getAvailableGroupByFields() {
+        // Return available fields from HoldingMV/OrderMV
+        return ResponseEntity.ok(Arrays.asList(
+            "accountName", "instrumentName", "instrumentType", 
+            "currency", "sector", "countryOfRisk", "countryOfDomicile"
+        ));
     }
 }
 ```
@@ -494,15 +499,13 @@ public class AccountOverviewController {
 
 ### 6.1 Unit Tests
 - **UnifiedMarketValueProcessor**: Price consistency validation
-- **ChangeDetectionService**: Incremental update logic
-- **AccountOverviewViewService**: Dynamic topology creation
-- **MessageBatcher**: 100ms batching behavior
+- **AccountOverviewViewService**: Simplified topology creation
+- **ViewLifecycleManager**: View management
 
 ### 6.2 Integration Tests
 - **End-to-End**: Full flow from price update to grid change
 - **WebSocket**: Real-time communication testing
 - **Performance**: Latency and throughput validation
-- **Consistency**: Price timestamp validation across HoldingMV/OrderMV
 
 ### 6.3 Load Testing
 - **Concurrent Views**: Multiple users with different selections
@@ -518,7 +521,6 @@ view-server:
   account-overview:
     max-concurrent-views: 100
     view-cleanup-delay: 60000  # 1 minute
-    batch-interval: 100        # 100ms
     websocket:
       endpoint: "/ws/account-overview"
       max-sessions: 1000
@@ -527,45 +529,38 @@ view-server:
 ### 7.2 Monitoring & Metrics
 - **View Lifecycle Metrics**: Creation/deletion rates
 - **Price Consistency Metrics**: Timestamp validation success rate
-- **Performance Metrics**: Update latency, batching efficiency
+- **Performance Metrics**: Update latency
 - **WebSocket Metrics**: Connection count, message throughput
 
-### 7.3 Operational Procedures
-- **View Cleanup**: Automated cleanup of orphaned views
-- **Error Handling**: Graceful degradation for data inconsistencies
-- **Scaling**: Horizontal scaling considerations for Kafka Streams
-
-## Implementation Timeline
+## Implementation Timeline (Reduced!)
 
 ### Week 1-2: Foundation (Phase 1)
 - Implement UnifiedMarketValueJob
 - Replace existing Flink jobs
 - Validate price consistency
 
-### Week 3-4: Backend Services (Phase 2)
-- Implement core services
-- Dynamic view creation
-- Change detection logic
+### Week 3: Simplified Backend Services (Phase 2)
+- Implement simplified core services
+- Dynamic view creation (much simpler!)
 
-### Week 5: WebSocket Communication (Phase 3)
-- WebSocket handlers
-- Message batching
-- Session management
+### Week 4: WebSocket Communication (Phase 3)
+- Simplified WebSocket handlers
+- Direct updates (no batching complexity)
 
-### Week 6: Frontend Implementation (Phase 4)
+### Week 5: Frontend Implementation (Phase 4)
 - React components
 - AG-Grid integration
-- Real-time updates
+- Simplified real-time updates
 
-### Week 7: API & Testing (Phase 5-6)
+### Week 6: API & Testing (Phase 5-6)
 - REST endpoints
 - Unit and integration tests
 - Performance validation
 
-### Week 8: Deployment & Polish (Phase 7)
+### Week 7: Deployment & Polish (Phase 7)
 - Production deployment
 - Monitoring setup
-- Documentation and training
+- Documentation
 
 ## Success Criteria
 
@@ -573,19 +568,33 @@ view-server:
 - ✅ Multi-select account filtering
 - ✅ Dynamic grouping by any HoldingMV/OrderMV field
 - ✅ SOD/Current/Expected exposure calculations
-- ✅ Real-time grid updates with cell-level changes
+- ✅ Real-time grid updates
 - ✅ 100% price consistency between holdings and orders
 
 ### Performance Requirements
 - ✅ View creation < 500ms
 - ✅ Update latency < 100ms
-- ✅ 100ms batching for rapid changes
-- ✅ 2-second visual change indicators
 - ✅ Automatic view cleanup after 1-minute disconnection
 
 ### Technical Requirements
 - ✅ Unified Flink job for price consistency
-- ✅ Dynamic Kafka Streams topologies
-- ✅ WebSocket incremental updates
+- ✅ Simplified Kafka Streams topologies
+- ✅ Direct WebSocket updates
 - ✅ Scalable view management
-- ✅ Comprehensive monitoring and observability 
+
+## Key Simplifications Achieved
+
+### **Eliminated Complexity:**
+- ❌ **No stream splitting** (holdings vs orders)
+- ❌ **No complex joins** with time windows
+- ❌ **No price validation** (Flink guarantees consistency)
+- ❌ **No change detection service** (KTable built-in)
+- ❌ **No message batching** (direct updates)
+- ❌ **No complex state management** (single aggregation)
+
+### **Reduced Implementation:**
+- 🔥 **~70% less code** in Kafka Streams layer
+- 🔥 **~50% less complexity** overall
+- 🔥 **1 week faster** implementation timeline
+- 🔥 **Lower memory usage** (single state store)
+- 🔥 **Better performance** (fewer processing hops) 
