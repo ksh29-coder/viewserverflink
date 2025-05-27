@@ -59,7 +59,7 @@ export MAVEN_OPTS="$JAVA_17_ARGS"
 
 # Start the job in background
 mvn exec:java -pl flink-jobs \
-    -Dexec.mainClass="com.viewserver.flink.HoldingMarketValueJob" \
+    -Dexec.mainClass="com.viewserver.flink.UnifiedMarketValueJob" \
     -Dexec.args="--kafka.bootstrap-servers localhost:9092" \
     > flink-test.log 2>&1 &
 
@@ -131,4 +131,4 @@ fi
 
 echo ""
 echo "📝 Full log saved to: flink-test.log"
-echo "🔧 To run manually: MAVEN_OPTS=\"$JAVA_17_ARGS\" mvn exec:java -pl flink-jobs -Dexec.mainClass=\"com.viewserver.flink.HoldingMarketValueJob\"" 
+echo "🔧 To run manually: MAVEN_OPTS=\"$JAVA_17_ARGS\" mvn exec:java -pl flink-jobs -Dexec.mainClass=\"com.viewserver.flink.UnifiedMarketValueJob\"" 

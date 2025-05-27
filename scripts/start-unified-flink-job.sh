@@ -79,11 +79,9 @@ echo ""
 # Stop any existing Flink jobs
 echo "📋 Cleanup:"
 echo "-----------"
-if pgrep -f "UnifiedMarketValueJob\|HoldingMarketValueJob\|OrderMarketValueJob" > /dev/null; then
+if pgrep -f "UnifiedMarketValueJob" > /dev/null; then
     echo "🔄 Stopping existing Flink jobs..."
     pkill -f "UnifiedMarketValueJob" 2>/dev/null || true
-    pkill -f "HoldingMarketValueJob" 2>/dev/null || true
-    pkill -f "OrderMarketValueJob" 2>/dev/null || true
     sleep 3
 fi
 

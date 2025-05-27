@@ -5,8 +5,6 @@ import 'ag-grid-community/styles/ag-theme-alpine.css'
 import { apiService } from '../services/apiService'
 
 const AggregationLayer = () => {
-  const [holdingsMV, setHoldingsMV] = useState([])
-  const [ordersMV, setOrdersMV] = useState([])
   const [unifiedMV, setUnifiedMV] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -17,8 +15,6 @@ const AggregationLayer = () => {
   const [lastRefresh, setLastRefresh] = useState(new Date())
   
   // Grid refs
-  const holdingsGridRef = useRef()
-  const ordersGridRef = useRef()
   const unifiedGridRef = useRef()
 
   // Load filters from localStorage on component mount
@@ -48,16 +44,12 @@ const AggregationLayer = () => {
       setLoading(true)
       setError(null)
       
-      const [holdingsMVData, ordersMVData, unifiedMVData, accountsData, instrumentsData] = await Promise.all([
-        apiService.getAllHoldingsMV(),
-        apiService.getAllOrdersMV(),
+      const [unifiedMVData, accountsData, instrumentsData] = await Promise.all([
         apiService.getAllUnifiedMV(),
         apiService.getAccounts(),
         apiService.getInstruments()
       ])
       
-      setHoldingsMV(holdingsMVData)
-      setOrdersMV(ordersMVData)
       setUnifiedMV(unifiedMVData)
       setAccounts(accountsData)
       setInstruments(instrumentsData)
@@ -68,14 +60,6 @@ const AggregationLayer = () => {
     } finally {
       setLoading(false)
     }
-  }
-
-  const onHoldingsGridReady = (params) => {
-    holdingsGridRef.current = params
-  }
-
-  const onOrdersGridReady = (params) => {
-    ordersGridRef.current = params
   }
 
   const onUnifiedGridReady = (params) => {
@@ -91,41 +75,11 @@ const AggregationLayer = () => {
   }
 
   // Filter data by selected account and instrument
-  const filteredHoldings = holdingsMV.filter(holding => {
-    const accountMatch = !selectedAccount || holding.accountId === selectedAccount
-    const instrumentMatch = !selectedInstrument || holding.instrumentId === selectedInstrument
-    return accountMatch && instrumentMatch
-  })
-
-  const filteredOrders = ordersMV.filter(order => {
-    const accountMatch = !selectedAccount || order.accountId === selectedAccount
-    const instrumentMatch = !selectedInstrument || order.instrumentId === selectedInstrument
-    return accountMatch && instrumentMatch
-  })
-
   const filteredUnified = unifiedMV.filter(unified => {
     const accountMatch = !selectedAccount || unified.accountId === selectedAccount
     const instrumentMatch = !selectedInstrument || unified.instrumentId === selectedInstrument
     return accountMatch && instrumentMatch
   })
-
-  // Calculate summary statistics for holdings
-  const totalHoldingsMarketValueUSD = filteredHoldings.reduce((sum, holding) => {
-    return sum + (holding.marketValueUSD || 0)
-  }, 0)
-  
-  const totalHoldingsMarketValueLocal = filteredHoldings.reduce((sum, holding) => {
-    return sum + (holding.marketValueLocal || 0)
-  }, 0)
-
-  // Calculate summary statistics for orders
-  const totalOrdersMarketValueUSD = filteredOrders.reduce((sum, order) => {
-    return sum + (order.orderMarketValueUSD || 0)
-  }, 0)
-
-  const totalFilledMarketValueUSD = filteredOrders.reduce((sum, order) => {
-    return sum + (order.filledMarketValueUSD || 0)
-  }, 0)
 
   // Calculate summary statistics for unified data
   const unifiedHoldings = filteredUnified.filter(u => u.recordType === 'HOLDING')
@@ -143,202 +97,9 @@ const AggregationLayer = () => {
     return sum + (order.filledMarketValueUSD || 0)
   }, 0)
 
-  const instrumentTypes = [...new Set([...filteredHoldings.map(h => h.instrumentType), ...filteredOrders.map(o => o.instrumentType), ...filteredUnified.map(u => u.instrumentType)])]
+  const instrumentTypes = [...new Set([...filteredUnified.map(u => u.instrumentType)])]
 
-  // Holdings column definitions
-  const holdingsColumnDefs = [
-    { 
-      headerName: 'Account', 
-      field: 'accountId', 
-      width: 100,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Instrument', 
-      field: 'instrumentId', 
-      width: 120,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Name', 
-      field: 'instrumentName', 
-      width: 200,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Type', 
-      field: 'instrumentType', 
-      width: 100
-    },
-    { 
-      headerName: 'Currency', 
-      field: 'currency', 
-      width: 100
-    },
-    { 
-      headerName: 'Position', 
-      field: 'position', 
-      width: 120,
-      valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
-    },
-    { 
-      headerName: 'Price', 
-      field: 'price', 
-      width: 120,
-      valueFormatter: params => params.value ? `$${params.value.toFixed(2)}` : '$0.00'
-    },
-    { 
-      headerName: 'Market Value (Local)', 
-      field: 'marketValueLocal', 
-      width: 180,
-      valueFormatter: params => params.value ? `${params.value.toLocaleString('en-US', {
-        style: 'currency',
-        currency: params.data.currency || 'USD'
-      })}` : '$0.00',
-      cellStyle: { backgroundColor: '#e8f5e8', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Market Value (USD)', 
-      field: 'marketValueUSD', 
-      width: 180,
-      valueFormatter: params => params.value ? `$${params.value.toLocaleString()}` : '$0.00',
-      cellStyle: { backgroundColor: '#e8f4fd', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Date', 
-      field: 'date', 
-      width: 120
-    },
-    { 
-      headerName: 'Calculation Time', 
-      field: 'calculationTimestamp', 
-      width: 180,
-      valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
-    }
-  ]
 
-  // Orders column definitions
-  const ordersColumnDefs = [
-    { 
-      headerName: 'Account', 
-      field: 'accountId', 
-      width: 100,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Order ID', 
-      field: 'orderId', 
-      width: 120,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Instrument', 
-      field: 'instrumentId', 
-      width: 120,
-      pinned: 'left'
-    },
-    { 
-      headerName: 'Name', 
-      field: 'instrumentName', 
-      width: 200
-    },
-    { 
-      headerName: 'Type', 
-      field: 'instrumentType', 
-      width: 100
-    },
-    { 
-      headerName: 'Side', 
-      field: 'buyOrder', 
-      width: 80,
-      valueFormatter: params => params.value ? 'BUY' : 'SELL',
-      cellStyle: params => ({
-        backgroundColor: params.value ? '#d4edda' : '#f8d7da',
-        fontWeight: 'bold'
-      })
-    },
-    { 
-      headerName: 'Currency', 
-      field: 'currency', 
-      width: 100
-    },
-    { 
-      headerName: 'Quantity', 
-      field: 'orderQuantity', 
-      width: 120,
-      valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
-    },
-    { 
-      headerName: 'Filled Qty', 
-      field: 'filledQuantity', 
-      width: 120,
-      valueFormatter: params => params.value ? params.value.toLocaleString() : '0'
-    },
-    { 
-      headerName: 'Price', 
-      field: 'price', 
-      width: 120,
-      valueFormatter: params => params.value ? `$${params.value.toFixed(2)}` : '$0.00'
-    },
-    { 
-      headerName: 'Order MV (Local)', 
-      field: 'orderMarketValueLocal', 
-      width: 160,
-      valueFormatter: params => params.value ? `${params.value.toLocaleString('en-US', {
-        style: 'currency',
-        currency: params.data.currency || 'USD'
-      })}` : '$0.00',
-      cellStyle: { backgroundColor: '#fff3cd', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Order MV (USD)', 
-      field: 'orderMarketValueUSD', 
-      width: 160,
-      valueFormatter: params => params.value ? `$${params.value.toLocaleString()}` : '$0.00',
-      cellStyle: { backgroundColor: '#d1ecf1', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Filled MV (Local)', 
-      field: 'filledMarketValueLocal', 
-      width: 160,
-      valueFormatter: params => params.value ? `${params.value.toLocaleString('en-US', {
-        style: 'currency',
-        currency: params.data.currency || 'USD'
-      })}` : '$0.00',
-      cellStyle: { backgroundColor: '#e8f5e8', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Filled MV (USD)', 
-      field: 'filledMarketValueUSD', 
-      width: 160,
-      valueFormatter: params => params.value ? `$${params.value.toLocaleString()}` : '$0.00',
-      cellStyle: { backgroundColor: '#e8f4fd', fontWeight: 'bold' }
-    },
-    { 
-      headerName: 'Status', 
-      field: 'orderStatus', 
-      width: 100,
-      cellStyle: params => {
-        const status = params.value;
-        if (status === 'FILLED') return { backgroundColor: '#d4edda', fontWeight: 'bold' };
-        if (status === 'PARTIAL') return { backgroundColor: '#fff3cd', fontWeight: 'bold' };
-        if (status === 'PENDING') return { backgroundColor: '#d1ecf1', fontWeight: 'bold' };
-        return { fontWeight: 'bold' };
-      }
-    },
-    { 
-      headerName: 'Order Time', 
-      field: 'timestamp', 
-      width: 180,
-      valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
-    },
-    { 
-      headerName: 'Calculation Time', 
-      field: 'calculationTimestamp', 
-      width: 180,
-      valueFormatter: params => params.value ? new Date(params.value).toLocaleString() : ''
-    }
-  ]
 
   // Unified Market Value column definitions
   const unifiedColumnDefs = [
@@ -704,30 +465,7 @@ const AggregationLayer = () => {
             🗑️ Clear Filters
           </button>
           
-          <button
-            onClick={() => {
-              const ordersSection = document.querySelector('h3[style*="color: rgb(0, 123, 255)"]');
-              if (ordersSection) {
-                ordersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
-          >
-            📋 Jump to Orders Grid
-          </button>
+
           
           <div style={{ color: '#6c757d', fontSize: '14px' }}>
             Last updated: {lastRefresh.toLocaleTimeString()}
@@ -741,65 +479,7 @@ const AggregationLayer = () => {
           gap: '15px', 
           marginBottom: '20px' 
         }}>
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#e8f4fd', 
-            borderRadius: '8px', 
-            border: '1px solid #b8daff' 
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#004085' }}>Holdings MV (USD)</h4>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#004085' }}>
-              ${totalHoldingsMarketValueUSD.toLocaleString()}
-            </div>
-          </div>
-          
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#d1ecf1', 
-            borderRadius: '8px', 
-            border: '1px solid #bee5eb' 
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#0c5460' }}>Orders MV (USD)</h4>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0c5460' }}>
-              ${totalOrdersMarketValueUSD.toLocaleString()}
-            </div>
-          </div>
-          
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#e8f5e8', 
-            borderRadius: '8px', 
-            border: '1px solid #b8e6b8' 
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#155724' }}>Filled MV (USD)</h4>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#155724' }}>
-              ${totalFilledMarketValueUSD.toLocaleString()}
-            </div>
-          </div>
-          
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#fff3cd', 
-            borderRadius: '8px', 
-            border: '1px solid #ffeaa7' 
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#856404' }}>Holdings Count</h4>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#856404' }}>
-              {filteredHoldings.length}
-            </div>
-          </div>
-          
-          <div style={{ 
-            padding: '15px', 
-            backgroundColor: '#f8d7da', 
-            borderRadius: '8px', 
-            border: '1px solid #f5c6cb' 
-          }}>
-            <h4 style={{ margin: '0 0 5px 0', color: '#721c24' }}>Orders Count</h4>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#721c24' }}>
-              {filteredOrders.length}
-            </div>
-          </div>
+
           
           <div style={{ 
             padding: '15px', 
@@ -851,70 +531,7 @@ const AggregationLayer = () => {
         </div>
       </div>
 
-      {/* Holdings Grid */}
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>
-          📊 Holdings with Market Values ({filteredHoldings.length} holdings)
-          {(selectedAccount || selectedInstrument) && (
-            <span style={{ fontSize: '14px', color: '#6c757d', fontWeight: 'normal' }}>
-              {' '}- Filtered by {selectedAccount && `Account: ${selectedAccount}`}
-              {selectedAccount && selectedInstrument && ', '}
-              {selectedInstrument && `Instrument: ${selectedInstrument}`}
-            </span>
-          )}
-        </h3>
-        <div className="ag-theme-alpine" style={{ height: '500px', width: '100%' }}>
-          <AgGridReact
-            columnDefs={holdingsColumnDefs}
-            rowData={filteredHoldings}
-            defaultColDef={defaultColDef}
-            pagination={true}
-            paginationPageSize={20}
-            suppressRowClickSelection={true}
-            rowSelection="multiple"
-            animateRows={true}
-            onGridReady={onHoldingsGridReady}
-          />
-        </div>
-      </div>
 
-      {/* Orders Grid */}
-      <div style={{ 
-        marginBottom: '20px',
-        border: '2px solid #007bff',
-        borderRadius: '8px',
-        padding: '15px',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 10px 0', 
-          color: '#007bff',
-          fontSize: '20px',
-          fontWeight: 'bold'
-        }}>
-          📋 Orders with Market Values ({filteredOrders.length} orders)
-          {(selectedAccount || selectedInstrument) && (
-            <span style={{ fontSize: '14px', color: '#6c757d', fontWeight: 'normal' }}>
-              {' '}- Filtered by {selectedAccount && `Account: ${selectedAccount}`}
-              {selectedAccount && selectedInstrument && ', '}
-              {selectedInstrument && `Instrument: ${selectedInstrument}`}
-            </span>
-          )}
-        </h3>
-        <div className="ag-theme-alpine" style={{ height: '500px', width: '100%' }}>
-          <AgGridReact
-            columnDefs={ordersColumnDefs}
-            rowData={filteredOrders}
-            defaultColDef={defaultColDef}
-            pagination={true}
-            paginationPageSize={20}
-            suppressRowClickSelection={true}
-            rowSelection="multiple"
-            animateRows={true}
-            onGridReady={onOrdersGridReady}
-          />
-        </div>
-      </div>
 
       {/* Unified Market Value Grid */}
       <div style={{ 
@@ -969,28 +586,6 @@ const AggregationLayer = () => {
         <h3 style={{ color: '#495057', marginBottom: '15px' }}>📊 Data Pipeline Information</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
           <div>
-            <h4 style={{ color: '#007bff', marginBottom: '10px' }}>🔄 Holdings Data Flow</h4>
-            <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
-              <li><strong>Base Data:</strong> SOD Holdings + Instruments + Prices</li>
-              <li><strong>Flink Processing:</strong> Stream joins and market value calculations</li>
-              <li><strong>Kafka Topic:</strong> aggregation.holding-mv</li>
-              <li><strong>View Server:</strong> Consumes and caches in Redis</li>
-              <li><strong>React UI:</strong> Real-time display with auto-refresh</li>
-            </ol>
-          </div>
-          
-          <div>
-            <h4 style={{ color: '#28a745', marginBottom: '10px' }}>🔄 Orders Data Flow</h4>
-            <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
-              <li><strong>Base Data:</strong> Orders + Instruments + Prices</li>
-              <li><strong>Flink Processing:</strong> Stream joins and market value calculations</li>
-              <li><strong>Kafka Topic:</strong> aggregation.order-mv</li>
-              <li><strong>View Server:</strong> Consumes and caches in Redis</li>
-              <li><strong>React UI:</strong> Real-time display with auto-refresh</li>
-            </ol>
-          </div>
-          
-          <div>
             <h4 style={{ color: '#6f42c1', marginBottom: '10px' }}>🔗 Unified Data Flow</h4>
             <ol style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
               <li><strong>Base Data:</strong> SOD Holdings + Orders + Instruments + Prices</li>
@@ -999,6 +594,17 @@ const AggregationLayer = () => {
               <li><strong>View Server:</strong> Consumes and caches in Redis</li>
               <li><strong>React UI:</strong> Price-consistent display</li>
             </ol>
+          </div>
+          
+          <div>
+            <h4 style={{ color: '#28a745', marginBottom: '10px' }}>🎯 Price Consistency Benefits</h4>
+            <ul style={{ paddingLeft: '20px', lineHeight: '1.6' }}>
+              <li><strong>Shared State:</strong> Holdings and orders use identical price data</li>
+              <li><strong>Atomic Updates:</strong> Price changes update all records simultaneously</li>
+              <li><strong>Simplified Architecture:</strong> Single job instead of multiple streams</li>
+              <li><strong>Operational Efficiency:</strong> Easier monitoring and maintenance</li>
+              <li><strong>Data Integrity:</strong> Eliminates price inconsistencies</li>
+            </ul>
           </div>
           
           <div>
@@ -1013,7 +619,7 @@ const AggregationLayer = () => {
           </div>
         </div>
         
-        {(filteredHoldings.length === 0 && filteredOrders.length === 0 && filteredUnified.length === 0) && (
+        {(filteredUnified.length === 0) && (
           <div style={{ 
             marginTop: '20px', 
             padding: '20px', 
@@ -1023,9 +629,9 @@ const AggregationLayer = () => {
           }}>
             <h4 style={{ color: '#856404', marginBottom: '10px' }}>🚀 Getting Started</h4>
             <p style={{ margin: '0', lineHeight: '1.6', color: '#856404' }}>
-              No aggregation data found. To populate this view:
+              No unified market value data found. To populate this view:
               <br />1. Ensure the Mock Data Generator is running and has initialized base data
-              <br />2. Run the Flink HoldingMV, OrderMV, and/or UnifiedMarketValue jobs to process base data into market value records
+              <br />2. Run the UnifiedMarketValue Flink job to process base data into unified market value records
               <br />3. The data will automatically appear here once processing is complete
               <br />4. The Unified view provides price consistency between holdings and orders
             </p>

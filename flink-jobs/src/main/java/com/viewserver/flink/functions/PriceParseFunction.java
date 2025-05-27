@@ -1,7 +1,7 @@
 package com.viewserver.flink.functions;
 
 import com.viewserver.data.model.Price;
-import com.viewserver.flink.HoldingMarketValueJob;
+import com.viewserver.flink.UnifiedMarketValueJob;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,7 @@ public class PriceParseFunction implements MapFunction<String, Price> {
             // Log the raw JSON for debugging (first 200 chars)
             log.debug("Parsing Price JSON: {}", json.length() > 200 ? json.substring(0, 200) + "..." : json);
             
-            Price price = HoldingMarketValueJob.getObjectMapper().readValue(json, Price.class);
+            Price price = UnifiedMarketValueJob.getObjectMapper().readValue(json, Price.class);
             
             // Validate the parsed price
             if (price.getInstrumentId() == null || price.getPrice() == null) {

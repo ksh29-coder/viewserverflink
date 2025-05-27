@@ -1,7 +1,5 @@
 package com.viewserver.viewserver.controller;
 
-import com.viewserver.aggregation.model.HoldingMV;
-import com.viewserver.aggregation.model.OrderMV;
 import com.viewserver.aggregation.model.UnifiedMarketValue;
 import com.viewserver.data.model.*;
 import com.viewserver.viewserver.service.CacheService;
@@ -158,49 +156,7 @@ public class ViewServerController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Get holdings with market values for specific account
-     * GET /api/holdings-mv/{accountId}
-     */
-    @GetMapping("/holdings-mv/{accountId}")
-    public ResponseEntity<Set<HoldingMV>> getAccountHoldingsWithMarketValue(@PathVariable("accountId") String accountId) {
-        log.debug("API request: GET /api/holdings-mv/{}", accountId);
-        Set<HoldingMV> holdingsMV = cacheService.getHoldingsMVForAccount(accountId);
-        return ResponseEntity.ok(holdingsMV);
-    }
-    
-    /**
-     * Get all holdings with market values
-     * GET /api/holdings-mv
-     */
-    @GetMapping("/holdings-mv")
-    public ResponseEntity<Set<HoldingMV>> getAllHoldingsWithMarketValue() {
-        log.debug("API request: GET /api/holdings-mv");
-        Set<HoldingMV> holdingsMV = cacheService.getAllHoldingsMV();
-        return ResponseEntity.ok(holdingsMV);
-    }
-    
-    /**
-     * Get orders with market values for specific account
-     * GET /api/orders-mv/{accountId}
-     */
-    @GetMapping("/orders-mv/{accountId}")
-    public ResponseEntity<Set<OrderMV>> getAccountOrdersWithMarketValue(@PathVariable("accountId") String accountId) {
-        log.debug("API request: GET /api/orders-mv/{}", accountId);
-        Set<OrderMV> ordersMV = cacheService.getOrdersMVForAccount(accountId);
-        return ResponseEntity.ok(ordersMV);
-    }
-    
-    /**
-     * Get all orders with market values
-     * GET /api/orders-mv
-     */
-    @GetMapping("/orders-mv")
-    public ResponseEntity<Set<OrderMV>> getAllOrdersWithMarketValue() {
-        log.debug("API request: GET /api/orders-mv");
-        Set<OrderMV> ordersMV = cacheService.getAllOrdersMV();
-        return ResponseEntity.ok(ordersMV);
-    }
+
     
     /**
      * Get unified market values for specific account

@@ -7,11 +7,9 @@ echo "🛑 Stopping All Services"
 echo "========================"
 
 # Stop any Flink jobs if running
-if pgrep -f "UnifiedMarketValueJob\|HoldingMarketValueJob\|OrderMarketValueJob" > /dev/null; then
+if pgrep -f "UnifiedMarketValueJob" > /dev/null; then
     echo "🔄 Stopping Flink jobs..."
     pkill -f "UnifiedMarketValueJob" 2>/dev/null || true
-    pkill -f "HoldingMarketValueJob" 2>/dev/null || true
-    pkill -f "OrderMarketValueJob" 2>/dev/null || true
     sleep 2
 fi
 
@@ -81,11 +79,11 @@ sleep 2
 # Verify all services are stopped
 echo ""
 echo "🔍 Verification:"
-if ! pgrep -f "ViewServerApplication\|mock-data-generator\|UnifiedMarketValueJob\|HoldingMarketValueJob\|OrderMarketValueJob\|npm run dev\|vite" > /dev/null; then
+if ! pgrep -f "ViewServerApplication\|mock-data-generator\|UnifiedMarketValueJob\|npm run dev\|vite" > /dev/null; then
     echo "✅ All application services stopped"
 else
     echo "⚠️  Some processes may still be running:"
-    pgrep -f "ViewServerApplication\|mock-data-generator\|UnifiedMarketValueJob\|HoldingMarketValueJob\|OrderMarketValueJob\|npm run dev\|vite" | while read pid; do
+    pgrep -f "ViewServerApplication\|mock-data-generator\|UnifiedMarketValueJob\|npm run dev\|vite" | while read pid; do
         echo "  PID $pid: $(ps -p $pid -o comm= 2>/dev/null || echo 'unknown')"
     done
 fi

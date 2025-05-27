@@ -87,20 +87,11 @@ echo
 echo "⚡ Flink Jobs:"
 echo "--------------"
 
-# HoldingMarketValue job
-echo -n "HoldingMarketValue Job: "
-if pgrep -f "HoldingMarketValueJob" >/dev/null 2>&1; then
-    HOLDING_PID=$(pgrep -f "HoldingMarketValueJob")
-    echo "✅ Running (PID: $HOLDING_PID)"
-else
-    echo "❌ Not running"
-fi
-
-# OrderMarketValue job
-echo -n "OrderMarketValue Job: "
-if pgrep -f "OrderMarketValueJob" >/dev/null 2>&1; then
-    ORDER_PID=$(pgrep -f "OrderMarketValueJob")
-    echo "✅ Running (PID: $ORDER_PID)"
+# UnifiedMarketValue job
+echo -n "UnifiedMarketValue Job: "
+if pgrep -f "UnifiedMarketValueJob" >/dev/null 2>&1; then
+    UNIFIED_PID=$(pgrep -f "UnifiedMarketValueJob")
+    echo "✅ Running (PID: $UNIFIED_PID)"
 else
     echo "❌ Not running"
 fi
@@ -130,12 +121,11 @@ KAFKA_OK=$(docker exec viewserver-kafka kafka-topics --bootstrap-server localhos
 MOCK_OK=$(curl -s http://localhost:8081/api/data-generation/status >/dev/null 2>&1 && echo "1" || echo "0")
 VIEW_OK=$(curl -s http://localhost:8080/api/health >/dev/null 2>&1 && echo "1" || echo "0")
 REACT_OK=$(curl -s http://localhost:3000 >/dev/null 2>&1 && echo "1" || echo "0")
-HOLDING_FLINK_OK=$(pgrep -f "HoldingMarketValueJob" >/dev/null 2>&1 && echo "1" || echo "0")
-ORDER_FLINK_OK=$(pgrep -f "OrderMarketValueJob" >/dev/null 2>&1 && echo "1" || echo "0")
+UNIFIED_FLINK_OK=$(pgrep -f "UnifiedMarketValueJob" >/dev/null 2>&1 && echo "1" || echo "0")
 
-TOTAL_OK=$((REDIS_OK + KAFKA_OK + MOCK_OK + VIEW_OK + REACT_OK + HOLDING_FLINK_OK + ORDER_FLINK_OK))
+TOTAL_OK=$((REDIS_OK + KAFKA_OK + MOCK_OK + VIEW_OK + REACT_OK + UNIFIED_FLINK_OK))
 
-if [ $TOTAL_OK -eq 7 ]; then
+if [ $TOTAL_OK -eq 6 ]; then
     echo "🎉 All services are running! System is fully operational."
     echo "   🌐 React UI: http://localhost:3000/ (Modern Dashboard)"
     echo "   🔧 Backend API: http://localhost:8080/ (Spring Boot)"
@@ -143,7 +133,7 @@ if [ $TOTAL_OK -eq 7 ]; then
 elif [ $TOTAL_OK -eq 0 ]; then
     echo "🚨 No services are running. Run './scripts/start-all.sh' to start the system."
 else
-    echo "⚠️  Partial system running ($TOTAL_OK/7 services). Check individual services above."
+    echo "⚠️  Partial system running ($TOTAL_OK/6 services). Check individual services above."
     if [ $REDIS_OK -eq 0 ] || [ $KAFKA_OK -eq 0 ]; then
         echo "   💡 Start infrastructure first: docker-compose up -d"
     fi
@@ -156,8 +146,8 @@ else
     if [ $REACT_OK -eq 0 ]; then
         echo "   💡 Start React UI: cd react-ui && npm run dev"
     fi
-    if [ $HOLDING_FLINK_OK -eq 0 ] || [ $ORDER_FLINK_OK -eq 0 ]; then
-echo "   💡 Flink jobs not running (use dedicated startup scripts when ready)"
+    if [ $UNIFIED_FLINK_OK -eq 0 ]; then
+        echo "   💡 Unified Flink job not running: ./scripts/start-unified-flink-job.sh"
     fi
 fi
 

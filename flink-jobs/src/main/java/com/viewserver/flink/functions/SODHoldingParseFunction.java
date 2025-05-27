@@ -1,7 +1,7 @@
 package com.viewserver.flink.functions;
 
 import com.viewserver.data.model.SODHolding;
-import com.viewserver.flink.HoldingMarketValueJob;
+import com.viewserver.flink.UnifiedMarketValueJob;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ public class SODHoldingParseFunction implements MapFunction<String, SODHolding> 
     @Override
     public SODHolding map(String json) throws Exception {
         try {
-            SODHolding holding = HoldingMarketValueJob.getObjectMapper().readValue(json, SODHolding.class);
+            SODHolding holding = UnifiedMarketValueJob.getObjectMapper().readValue(json, SODHolding.class);
             log.debug("Parsed holding: {} shares of {} in account {}", 
                     holding.getPosition(), holding.getInstrumentId(), holding.getAccountId());
             return holding;

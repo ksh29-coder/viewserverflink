@@ -17,7 +17,7 @@ fi
 
 # Stop consumers quickly
 echo "🛑 Stopping consumers..."
-pkill -f "ViewServerApplication\|mock-data-generator\|HoldingMarketValueJob\|OrderMarketValueJob" 2>/dev/null || true
+pkill -f "ViewServerApplication\|mock-data-generator\|UnifiedMarketValueJob" 2>/dev/null || true
 sleep 2
 
 # Get topics

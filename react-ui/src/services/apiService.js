@@ -74,25 +74,6 @@ export const apiService = {
   },
 
   // Aggregation Layer APIs
-  async getHoldingsMV(accountId) {
-    const response = await api.get(`/holdings-mv/${accountId}`)
-    return response.data
-  },
-
-  async getAllHoldingsMV() {
-    const response = await api.get('/holdings-mv')
-    return response.data
-  },
-
-  async getOrdersMV(accountId) {
-    const response = await api.get(`/orders-mv/${accountId}`)
-    return response.data
-  },
-
-  async getAllOrdersMV() {
-    const response = await api.get('/orders-mv')
-    return response.data
-  },
 
   // Unified Market Value APIs
   async getUnifiedMV(accountId) {

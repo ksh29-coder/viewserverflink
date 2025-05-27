@@ -1,7 +1,7 @@
 package com.viewserver.flink.functions;
 
 import com.viewserver.data.model.Instrument;
-import com.viewserver.flink.HoldingMarketValueJob;
+import com.viewserver.flink.UnifiedMarketValueJob;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ public class InstrumentParseFunction implements MapFunction<String, Instrument> 
     @Override
     public Instrument map(String json) throws Exception {
         try {
-            Instrument instrument = HoldingMarketValueJob.getObjectMapper().readValue(json, Instrument.class);
+            Instrument instrument = UnifiedMarketValueJob.getObjectMapper().readValue(json, Instrument.class);
             log.debug("Parsed instrument: {} ({})", 
                     instrument.getInstrumentName(), instrument.getInstrumentId());
             return instrument;
