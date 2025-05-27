@@ -164,7 +164,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <configuration>
-                    <mainClass>com.viewserver.flink.HoldingMarketValueJob</mainClass>
+                    <mainClass>com.viewserver.flink.UnifiedMarketValueJob</mainClass>
                     <includeProjectDependencies>true</includeProjectDependencies>
                     <includePluginDependencies>false</includePluginDependencies>
                     <classpathScope>compile</classpathScope>

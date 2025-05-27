@@ -29,6 +29,8 @@ infrastructure:
       - "base.order-events"
       - "base.cash-movement"
       - "aggregation.holding-mv"
+      - "aggregation.order-mv"
+      - "aggregation.unified-mv"
 
 # Application Services
 # ===================

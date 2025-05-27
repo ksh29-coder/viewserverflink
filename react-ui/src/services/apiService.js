@@ -94,6 +94,37 @@ export const apiService = {
     return response.data
   },
 
+  // Unified Market Value APIs
+  async getUnifiedMV(accountId) {
+    const response = await api.get(`/unified-mv/${accountId}`)
+    return response.data
+  },
+
+  async getAllUnifiedMV() {
+    const response = await api.get('/unified-mv')
+    return response.data
+  },
+
+  async getUnifiedHoldings(accountId) {
+    const response = await api.get(`/unified-holdings/${accountId}`)
+    return response.data
+  },
+
+  async getAllUnifiedHoldings() {
+    const response = await api.get('/unified-holdings')
+    return response.data
+  },
+
+  async getUnifiedOrders(accountId) {
+    const response = await api.get(`/unified-orders/${accountId}`)
+    return response.data
+  },
+
+  async getAllUnifiedOrders() {
+    const response = await api.get('/unified-orders')
+    return response.data
+  },
+
   // Cache statistics
   async getCacheStats() {
     const response = await api.get('/stats')

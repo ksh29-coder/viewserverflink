@@ -2,6 +2,7 @@ package com.viewserver.viewserver.controller;
 
 import com.viewserver.aggregation.model.HoldingMV;
 import com.viewserver.aggregation.model.OrderMV;
+import com.viewserver.aggregation.model.UnifiedMarketValue;
 import com.viewserver.data.model.*;
 import com.viewserver.viewserver.service.CacheService;
 import lombok.RequiredArgsConstructor;
@@ -199,5 +200,71 @@ public class ViewServerController {
         log.debug("API request: GET /api/orders-mv");
         Set<OrderMV> ordersMV = cacheService.getAllOrdersMV();
         return ResponseEntity.ok(ordersMV);
+    }
+    
+    /**
+     * Get unified market values for specific account
+     * GET /api/unified-mv/{accountId}
+     */
+    @GetMapping("/unified-mv/{accountId}")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAccountUnifiedMarketValues(@PathVariable("accountId") String accountId) {
+        log.debug("API request: GET /api/unified-mv/{}", accountId);
+        Set<UnifiedMarketValue> unifiedMV = cacheService.getUnifiedMVForAccount(accountId);
+        return ResponseEntity.ok(unifiedMV);
+    }
+    
+    /**
+     * Get all unified market values
+     * GET /api/unified-mv
+     */
+    @GetMapping("/unified-mv")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAllUnifiedMarketValues() {
+        log.debug("API request: GET /api/unified-mv");
+        Set<UnifiedMarketValue> unifiedMV = cacheService.getAllUnifiedMV();
+        return ResponseEntity.ok(unifiedMV);
+    }
+    
+    /**
+     * Get unified holdings (HOLDING records only) for specific account
+     * GET /api/unified-holdings/{accountId}
+     */
+    @GetMapping("/unified-holdings/{accountId}")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAccountUnifiedHoldings(@PathVariable("accountId") String accountId) {
+        log.debug("API request: GET /api/unified-holdings/{}", accountId);
+        Set<UnifiedMarketValue> unifiedHoldings = cacheService.getUnifiedHoldingsForAccount(accountId);
+        return ResponseEntity.ok(unifiedHoldings);
+    }
+    
+    /**
+     * Get all unified holdings (HOLDING records only)
+     * GET /api/unified-holdings
+     */
+    @GetMapping("/unified-holdings")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAllUnifiedHoldings() {
+        log.debug("API request: GET /api/unified-holdings");
+        Set<UnifiedMarketValue> unifiedHoldings = cacheService.getAllUnifiedHoldings();
+        return ResponseEntity.ok(unifiedHoldings);
+    }
+    
+    /**
+     * Get unified orders (ORDER records only) for specific account
+     * GET /api/unified-orders/{accountId}
+     */
+    @GetMapping("/unified-orders/{accountId}")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAccountUnifiedOrders(@PathVariable("accountId") String accountId) {
+        log.debug("API request: GET /api/unified-orders/{}", accountId);
+        Set<UnifiedMarketValue> unifiedOrders = cacheService.getUnifiedOrdersForAccount(accountId);
+        return ResponseEntity.ok(unifiedOrders);
+    }
+    
+    /**
+     * Get all unified orders (ORDER records only)
+     * GET /api/unified-orders
+     */
+    @GetMapping("/unified-orders")
+    public ResponseEntity<Set<UnifiedMarketValue>> getAllUnifiedOrders() {
+        log.debug("API request: GET /api/unified-orders");
+        Set<UnifiedMarketValue> unifiedOrders = cacheService.getAllUnifiedOrders();
+        return ResponseEntity.ok(unifiedOrders);
     }
 } 

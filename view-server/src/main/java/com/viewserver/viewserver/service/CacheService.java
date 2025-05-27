@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viewserver.aggregation.model.HoldingMV;
 import com.viewserver.aggregation.model.OrderMV;
+import com.viewserver.aggregation.model.UnifiedMarketValue;
 import com.viewserver.data.model.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ public class CacheService {
     private static final String CASH_PREFIX = "cash:";
     private static final String HOLDINGS_MV_PREFIX = "holdings-mv:";
     private static final String ORDERS_MV_PREFIX = "orders-mv:";
+    private static final String UNIFIED_MV_PREFIX = "unified-mv:";
     
     // Time-to-live settings
     private static final Duration ACCOUNT_TTL = Duration.ofDays(30); // Static data, long TTL
@@ -45,6 +47,7 @@ public class CacheService {
     private static final Duration CASH_TTL = Duration.ofDays(7); // Cash movements, weekly TTL
     private static final Duration HOLDINGS_MV_TTL = Duration.ofDays(7); // Holdings MV, weekly TTL
     private static final Duration ORDERS_MV_TTL = Duration.ofDays(1); // Orders MV, daily TTL
+    private static final Duration UNIFIED_MV_TTL = Duration.ofDays(7); // Unified MV, weekly TTL
     
     // ==================== JSON Parsing Methods ====================
     
@@ -86,6 +89,11 @@ public class CacheService {
     public void cacheOrderMVFromJson(String json) throws JsonProcessingException {
         OrderMV orderMV = objectMapper.readValue(json, OrderMV.class);
         cacheOrderMV(orderMV);
+    }
+    
+    public void cacheUnifiedMVFromJson(String json) throws JsonProcessingException {
+        UnifiedMarketValue unifiedMV = objectMapper.readValue(json, UnifiedMarketValue.class);
+        cacheUnifiedMV(unifiedMV);
     }
     
     /**
@@ -215,6 +223,39 @@ public class CacheService {
     }
     
     /**
+     * Cache UnifiedMarketValue (Unified Holding/Order with Market Value)
+     */
+    public void cacheUnifiedMV(UnifiedMarketValue unifiedMV) {
+        try {
+            // Use the cache key from the model
+            String key = UNIFIED_MV_PREFIX + unifiedMV.getCacheKey();
+            String json = objectMapper.writeValueAsString(unifiedMV);
+            redisTemplate.opsForValue().set(key, json, UNIFIED_MV_TTL);
+            
+            if (unifiedMV.isHolding()) {
+                log.debug("Cached Unified HOLDING MV: {} {} shares @ ${} = ${} USD (Account: {})", 
+                        unifiedMV.getInstrumentName(),
+                        unifiedMV.getPosition(),
+                        unifiedMV.getPrice(),
+                        unifiedMV.getMarketValueUSD(),
+                        unifiedMV.getAccountId());
+            } else if (unifiedMV.isOrder()) {
+                log.debug("Cached Unified ORDER MV: {} {} order for {} @ ${} = ${} USD (Filled: ${} USD) [{}]", 
+                        unifiedMV.isBuyOrder() ? "BUY" : "SELL",
+                        unifiedMV.getOrderQuantity().abs(),
+                        unifiedMV.getInstrumentName(),
+                        unifiedMV.getPrice(),
+                        unifiedMV.getMarketValueUSD(),
+                        unifiedMV.getFilledMarketValueUSD(),
+                        unifiedMV.getOrderStatus());
+            }
+        } catch (JsonProcessingException e) {
+            log.error("Failed to cache UnifiedMV for {} {}: {}", 
+                     unifiedMV.getRecordType(), unifiedMV.getCacheKey(), e.getMessage());
+        }
+    }
+    
+    /**
      * Get all accounts
      */
     public Set<Account> getAllAccounts() {
@@ -295,6 +336,59 @@ public class CacheService {
     }
     
     /**
+     * Get unified market values for account
+     */
+    public Set<UnifiedMarketValue> getUnifiedMVForAccount(String accountId) {
+        // Get all UnifiedMV records and filter by account
+        return getAllUnifiedMV().stream()
+                .filter(unifiedMV -> accountId.equals(unifiedMV.getAccountId()))
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get all unified market values
+     */
+    public Set<UnifiedMarketValue> getAllUnifiedMV() {
+        return getByKeyPattern(UNIFIED_MV_PREFIX + "*", UnifiedMarketValue.class);
+    }
+    
+    /**
+     * Get unified holdings (HOLDING records only) for account
+     */
+    public Set<UnifiedMarketValue> getUnifiedHoldingsForAccount(String accountId) {
+        return getUnifiedMVForAccount(accountId).stream()
+                .filter(UnifiedMarketValue::isHolding)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get unified orders (ORDER records only) for account
+     */
+    public Set<UnifiedMarketValue> getUnifiedOrdersForAccount(String accountId) {
+        return getUnifiedMVForAccount(accountId).stream()
+                .filter(UnifiedMarketValue::isOrder)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get all unified holdings (HOLDING records only)
+     */
+    public Set<UnifiedMarketValue> getAllUnifiedHoldings() {
+        return getAllUnifiedMV().stream()
+                .filter(UnifiedMarketValue::isHolding)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * Get all unified orders (ORDER records only)
+     */
+    public Set<UnifiedMarketValue> getAllUnifiedOrders() {
+        return getAllUnifiedMV().stream()
+                .filter(UnifiedMarketValue::isOrder)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
      * Generic method to get objects by key pattern
      */
     private <T> Set<T> getByKeyPattern(String pattern, Class<T> clazz) {
@@ -354,6 +448,9 @@ public class CacheService {
                 .holdingCount(getKeyCount(HOLDINGS_PREFIX + "*"))
                 .orderCount(getKeyCount(ORDERS_PREFIX + "*"))
                 .cashMovementCount(getKeyCount(CASH_PREFIX + "*"))
+                .holdingMVCount(getKeyCount(HOLDINGS_MV_PREFIX + "*"))
+                .orderMVCount(getKeyCount(ORDERS_MV_PREFIX + "*"))
+                .unifiedMVCount(getKeyCount(UNIFIED_MV_PREFIX + "*"))
                 .build();
     }
     
@@ -372,15 +469,22 @@ public class CacheService {
         public final long holdingCount;
         public final long orderCount;
         public final long cashMovementCount;
+        public final long holdingMVCount;
+        public final long orderMVCount;
+        public final long unifiedMVCount;
         
         private CacheStats(long accountCount, long instrumentCount, long priceCount, 
-                          long holdingCount, long orderCount, long cashMovementCount) {
+                          long holdingCount, long orderCount, long cashMovementCount,
+                          long holdingMVCount, long orderMVCount, long unifiedMVCount) {
             this.accountCount = accountCount;
             this.instrumentCount = instrumentCount;
             this.priceCount = priceCount;
             this.holdingCount = holdingCount;
             this.orderCount = orderCount;
             this.cashMovementCount = cashMovementCount;
+            this.holdingMVCount = holdingMVCount;
+            this.orderMVCount = orderMVCount;
+            this.unifiedMVCount = unifiedMVCount;
         }
         
         public static CacheStatsBuilder builder() {
@@ -394,6 +498,9 @@ public class CacheService {
             private long holdingCount;
             private long orderCount;
             private long cashMovementCount;
+            private long holdingMVCount;
+            private long orderMVCount;
+            private long unifiedMVCount;
             
             public CacheStatsBuilder accountCount(long accountCount) {
                 this.accountCount = accountCount;
@@ -425,9 +532,25 @@ public class CacheService {
                 return this;
             }
             
+            public CacheStatsBuilder holdingMVCount(long holdingMVCount) {
+                this.holdingMVCount = holdingMVCount;
+                return this;
+            }
+            
+            public CacheStatsBuilder orderMVCount(long orderMVCount) {
+                this.orderMVCount = orderMVCount;
+                return this;
+            }
+            
+            public CacheStatsBuilder unifiedMVCount(long unifiedMVCount) {
+                this.unifiedMVCount = unifiedMVCount;
+                return this;
+            }
+            
             public CacheStats build() {
                 return new CacheStats(accountCount, instrumentCount, priceCount, 
-                                    holdingCount, orderCount, cashMovementCount);
+                                    holdingCount, orderCount, cashMovementCount,
+                                    holdingMVCount, orderMVCount, unifiedMVCount);
             }
         }
     }
