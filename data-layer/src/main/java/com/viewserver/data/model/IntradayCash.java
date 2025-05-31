@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.viewserver.common.keys.KeyBuilder;
 import lombok.AllArgsConstructor;
@@ -70,6 +71,7 @@ public class IntradayCash {
      * Get the Kafka key for this intraday cash movement
      * Format: {date}#{instrumentId}#{accountId}
      */
+    @JsonIgnore
     public String getKafkaKey() {
         return KeyBuilder.buildIntradayCashKey(date, instrumentId, accountId);
     }

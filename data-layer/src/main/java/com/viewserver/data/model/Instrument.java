@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.viewserver.common.keys.KeyBuilder;
@@ -85,6 +86,7 @@ public class Instrument {
     /**
      * Get the Kafka key for this instrument
      */
+    @JsonIgnore
     public String getKafkaKey() {
         return instrumentId;
     }

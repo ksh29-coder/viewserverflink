@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.viewserver.common.keys.KeyBuilder;
@@ -94,13 +95,6 @@ public class Order {
     private LocalDateTime timestamp = LocalDateTime.now();
     
     /**
-     * Get the Kafka key for this order
-     */
-    public String getKafkaKey() {
-        return KeyBuilder.buildOrderKey(orderId);
-    }
-    
-    /**
      * Calculate the remaining quantity to be filled
      */
     public BigDecimal getRemainingQuantity() {
@@ -126,5 +120,13 @@ public class Order {
      */
     public boolean isSellOrder() {
         return orderQuantity.compareTo(BigDecimal.ZERO) < 0;
+    }
+    
+    /**
+     * Get the Kafka key for this order
+     */
+    @JsonIgnore
+    public String getKafkaKey() {
+        return KeyBuilder.buildOrderKey(orderId);
     }
 } 

@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.viewserver.common.keys.KeyBuilder;
@@ -23,46 +24,45 @@ import java.time.LocalDateTime;
 public class Price {
     
     /**
-     * The timestamp when this price was observed/recorded
+     * The date when this price was recorded
      */
     @JsonProperty("date")
     private LocalDateTime date;
-    
+
     /**
-     * The instrument for which this price applies
+     * The unique identifier for the financial instrument
      */
     @JsonProperty("instrumentId")
     private String instrumentId;
-    
+
     /**
-     * The price value (could be market price, NAV, exchange rate, etc.)
+     * The price value
      */
     @JsonProperty("price")
     private BigDecimal price;
-    
+
     /**
-     * Optional: Currency in which the price is denominated
+     * The currency in which the price is denominated
      */
     @JsonProperty("currency")
     private String currency;
-    
+
     /**
-     * Optional: Source of the price (e.g., "BLOOMBERG", "REUTERS", "INTERNAL")
+     * The source of the price data (e.g., exchange, vendor)
      */
     @JsonProperty("source")
     private String source;
-    
+
     /**
-     * Timestamp when this price record was created or last updated
+     * The timestamp when this price was generated/received
      */
     @JsonProperty("timestamp")
-    @Builder.Default
-    private LocalDateTime timestamp = LocalDateTime.now();
-    
+    private LocalDateTime timestamp;
+
     /**
      * Get the Kafka key for this price
-     * Format: {instrumentId}#{date}
      */
+    @JsonIgnore
     public String getKafkaKey() {
         return KeyBuilder.buildPriceKey(instrumentId, date);
     }

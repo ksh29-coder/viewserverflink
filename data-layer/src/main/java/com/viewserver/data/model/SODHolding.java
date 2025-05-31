@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.viewserver.common.keys.KeyBuilder;
@@ -65,6 +66,7 @@ public class SODHolding {
      * Get the Kafka key for this SOD holding
      * Format: {date}#{instrumentId}#{accountId}
      */
+    @JsonIgnore
     public String getKafkaKey() {
         return KeyBuilder.buildSODHoldingKey(date, instrumentId, accountId);
     }

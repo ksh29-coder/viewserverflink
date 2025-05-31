@@ -1,5 +1,6 @@
 package com.viewserver.data.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -41,6 +42,7 @@ public class Account {
     /**
      * Get the Kafka key for this account
      */
+    @JsonIgnore
     public String getKafkaKey() {
         return accountId;
     }

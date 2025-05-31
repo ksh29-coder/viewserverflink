@@ -3,7 +3,7 @@
 ## Account Overview Page
 
 ### Overview
-The Account Overview page provides a dynamic, real-time view of portfolio positions with configurable grouping and exposure calculations. The page ensures **price consistency** by using a unified data processing approach where both holdings and orders are calculated using identical price data.
+The Account Overview page provides a dynamic, real-time view of portfolio positions with configurable grouping and exposure calculations. The page ensures **price consistency** by using a unified data processing approach where both holdings and orders are processed together using identical price data from the `aggregation.unified-mv` Kafka topic.
 
 ### UI Components
 
@@ -19,7 +19,7 @@ The Account Overview page provides a dynamic, real-time view of portfolio positi
 #### 2. Group By Selector
 - **Type**: Single-select dropdown
 - **Default**: `[accountName, instrumentName]`
-- **Available Fields** (from HoldingMV/OrderMV):
+- **Available Fields** (from UnifiedMarketValue records):
   - `accountName` (always first option)
   - `instrumentName`
   - `instrumentType`
@@ -54,39 +54,54 @@ The Account Overview page provides a dynamic, real-time view of portfolio positi
 
 ### Data Processing Logic
 
+#### Unified Data Source
+The Account Overview consumes data from the **`aggregation.unified-mv`** Kafka topic, which contains both holdings and orders with guaranteed price consistency. Each record has a `recordType` field indicating whether it's a "HOLDING" or "ORDER".
+
 #### Calculation Formulas
 ```sql
--- Based on user selection, the view aggregates:
+-- Based on user selection, the view aggregates from unified stream:
 SELECT 
   [dynamic_group_fields],
-  SUM(holdingMv.marketValueUSD) as SOD_NAV_USD,
-  SUM(holdingMv.marketValueUSD + orderMv.filledMarketValueUSD) as CURRENT_NAV_USD,
-  SUM(holdingMv.marketValueUSD + orderMv.orderMarketValueUSD) as EXPECTED_NAV_USD
-FROM holdingMV 
-LEFT JOIN orderMV ON (
-  holdingMv.instrumentId = orderMv.instrumentId AND 
-  holdingMv.accountId = orderMv.accountId AND
-  holdingMv.priceTimestamp = orderMv.priceTimestamp  -- PRICE CONSISTENCY
-)
-WHERE holdingMv.accountId IN [selected_accounts]
+  SUM(CASE WHEN recordType = 'HOLDING' THEN marketValueUSD ELSE 0 END) as SOD_NAV_USD,
+  SUM(CASE WHEN recordType = 'HOLDING' THEN marketValueUSD 
+           WHEN recordType = 'ORDER' THEN filledMarketValueUSD 
+           ELSE 0 END) as CURRENT_NAV_USD,
+  SUM(CASE WHEN recordType = 'HOLDING' THEN marketValueUSD 
+           WHEN recordType = 'ORDER' THEN marketValueUSD 
+           ELSE 0 END) as EXPECTED_NAV_USD
+FROM aggregation.unified-mv 
+WHERE accountId IN [selected_accounts]
+  AND priceTimestamp IS NOT NULL  -- Ensure valid price data
 GROUP BY [dynamic_group_fields]
 HAVING [filter_empty_groups]
 ```
 
-#### Data Consistency Requirements
-- **Critical**: HoldingMV and OrderMV must use **identical price data** for the same instrument
-- **Implementation**: Unified Flink job ensures both calculations use the same price update
-- **Validation**: Reject aggregations where price timestamps don't match
+#### Data Consistency Guarantees
+- **Price Consistency**: All holdings and orders for the same instrument use identical `price` and `priceTimestamp`
+- **Atomic Updates**: When prices change, both holdings and orders are updated simultaneously
+- **Single Source**: Eliminates join complexity and potential inconsistencies
+- **Validation**: Records without valid prices are filtered out
+
+#### Record Types and Market Values
+- **HOLDING records**:
+  - `marketValueUSD`: SOD position value (position × price)
+  - Used for SOD NAV calculation
+- **ORDER records**:
+  - `marketValueUSD`: Full order value (orderQuantity × price)
+  - `filledMarketValueUSD`: Filled portion value (filledQuantity × price)
+  - Used for Current/Expected NAV calculations
 
 #### Error Handling
 - **No holdings for selected accounts**: Show accounts with SOD NAV = $0
 - **Orders exist but no holdings**: Show rows with SOD NAV = $0, Current/Expected from orders only
+- **Invalid price data**: Filter out records with null prices or timestamps
 - **Empty groups**: Filter out automatically (don't display)
 
 ### Real-Time Updates
 
 #### WebSocket Communication
 - **Endpoint**: `/ws/account-overview/{viewId}` (unique per view)
+- **Data Source**: Live stream from `aggregation.unified-mv` topic
 - **Message Format**:
 ```json
 {
@@ -100,6 +115,10 @@ HAVING [filter_empty_groups]
         "currentNavUSD": {
           "oldValue": 150000.00,
           "newValue": 151250.00
+        },
+        "expectedNavUSD": {
+          "oldValue": 155000.00,
+          "newValue": 156250.00
         }
       }
     }
@@ -109,7 +128,7 @@ HAVING [filter_empty_groups]
 
 #### Update Batching
 - **Frequency**: 100ms batching for rapid changes
-- **Strategy**: Collect all changes within 100ms window, send as single message
+- **Strategy**: Collect all unified-mv changes within 100ms window, send as single message
 - **Visual**: Individual cell highlighting for 2 seconds
 
 #### View Lifecycle
@@ -135,13 +154,13 @@ AccountOverview.tsx
 Computation Layer (Kafka Streams)
 ├── AccountOverviewViewService (dynamic topology creation)
 ├── ViewLifecycleManager (view creation/cleanup)
-├── ChangeDetectionService (incremental updates)
+├── UnifiedMVChangeDetectionService (incremental updates)
 └── WebSocketHandler (real-time communication)
 ```
 
 #### Data Flow
 ```
-Unified Flink Job → aggregation.unified-mv → Kafka Streams → WebSocket → React Grid
+UnifiedMarketValueJob → aggregation.unified-mv → Kafka Streams View → WebSocket → React Grid
 ```
 
 ### API Endpoints
@@ -154,11 +173,19 @@ Unified Flink Job → aggregation.unified-mv → Kafka Streams → WebSocket →
 
 #### Data APIs
 - `GET /api/accounts` - Get all accounts (for selector)
-- `GET /api/account-overview/groupby-fields` - Get available grouping fields
+- `GET /api/account-overview/groupby-fields` - Get available grouping fields from unified-mv schema
+- `GET /api/unified-mv` - Get current unified market value data (for testing/debugging)
 
 ### Performance Requirements
 - **View Creation**: < 500ms from selection change to first data
-- **Real-time Updates**: < 100ms from data change to grid update
-- **Price Consistency**: 100% consistency between HoldingMV and OrderMV prices
+- **Real-time Updates**: < 100ms from unified-mv change to grid update
+- **Price Consistency**: 100% consistency guaranteed by unified data source
 - **Concurrent Views**: Support multiple simultaneous views per user
 - **Memory**: Automatic cleanup of disconnected views
+
+### Benefits of Unified Approach
+- **Simplified Architecture**: Single data stream instead of complex joins
+- **Guaranteed Consistency**: Holdings and orders always use identical prices
+- **Better Performance**: No join overhead, direct aggregation
+- **Easier Debugging**: Single source of truth for all market value calculations
+- **Reduced Complexity**: Eliminates price timestamp validation logic
