@@ -183,7 +183,6 @@ const AggregationLayer = () => {
       headerName: 'Side', 
       field: 'orderQuantity', 
       width: 80,
-      headerName: 'Side',
       valueFormatter: params => {
         if (params.data.recordType === 'ORDER' && params.value) {
           return params.value > 0 ? 'BUY' : 'SELL'
@@ -277,8 +276,8 @@ const AggregationLayer = () => {
       valueFormatter: params => {
         if (params.data.recordType === 'ORDER' && params.value) {
           return `${params.value.toLocaleString('en-US', {
-            style: 'currency',
-            currency: params.data.currency || 'USD'
+        style: 'currency',
+        currency: params.data.currency || 'USD'
           })}`
         }
         return ''

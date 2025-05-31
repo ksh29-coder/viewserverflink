@@ -1,8 +1,12 @@
 package com.viewserver.viewserver.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.viewserver.aggregation.model.UnifiedMarketValue;
 import com.viewserver.viewserver.service.CacheService;
+import com.viewserver.computation.streams.AccountOverviewViewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
  * Kafka consumer for UnifiedMarketValue aggregation data.
  * Consumes unified holding and order data with market value calculations from Flink.
  * This ensures price consistency between holdings and orders by using the same price source.
+ * Also triggers real-time updates to Account Overview WebSocket views.
  */
 @Service
 @Slf4j
@@ -20,6 +25,10 @@ import org.springframework.stereotype.Service;
 public class UnifiedMVConsumer {
     
     private final CacheService cacheService;
+    private final ObjectMapper objectMapper;
+    
+    @Autowired(required = false)
+    private AccountOverviewViewService accountOverviewViewService;
     
     /**
      * Consume UnifiedMarketValue data from aggregation.unified-mv topic
@@ -38,10 +47,19 @@ public class UnifiedMVConsumer {
         log.debug("Received UnifiedMV from topic: {}, partition: {}, offset: {}", topic, partition, offset);
         
         try {
-            // Cache the UnifiedMV data
-            cacheService.cacheUnifiedMVFromJson(unifiedMVJson);
+            // Parse the UnifiedMV data first to get the actual object
+            UnifiedMarketValue unifiedMV = objectMapper.readValue(unifiedMVJson, UnifiedMarketValue.class);
             
-            log.debug("Successfully processed UnifiedMV from offset {}", offset);
+            // Cache the UnifiedMV data
+            cacheService.cacheUnifiedMV(unifiedMV);
+            
+            // 🚀 NEW: Trigger real-time view updates
+            if (accountOverviewViewService != null) {
+                accountOverviewViewService.onUnifiedMVUpdate(unifiedMV);
+            }
+            
+            log.debug("Successfully processed and cached UnifiedMV from offset {}: {} {} for account {}", 
+                     offset, unifiedMV.getRecordType(), unifiedMV.getInstrumentId(), unifiedMV.getAccountId());
             
         } catch (Exception e) {
             log.error("Failed to process UnifiedMV from topic {}, partition {}, offset {}: {}", 

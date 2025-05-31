@@ -2,8 +2,10 @@ package com.viewserver.viewserver.consumer;
 
 import com.viewserver.data.model.*;
 import com.viewserver.viewserver.service.CacheService;
+import com.viewserver.computation.streams.AccountOverviewViewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 /**
  * Kafka consumers for all base layer topics.
  * Consumes data and stores it in Redis cache for API access.
+ * Also triggers real-time view updates for Account Overview views.
  */
 @Service
 @Slf4j
@@ -18,6 +21,9 @@ import org.springframework.stereotype.Service;
 public class DataConsumerService {
     
     private final CacheService cacheService;
+    
+    @Autowired(required = false)
+    private AccountOverviewViewService accountOverviewViewService;
     
     /**
      * Consume account data from base.account topic
@@ -56,6 +62,11 @@ public class DataConsumerService {
             log.debug("Received price data: {}", priceJson);
             cacheService.cachePriceFromJson(priceJson);
             log.debug("Successfully cached price data");
+            
+            // ✅ Price updates can affect all portfolio values - trigger view refresh
+            if (accountOverviewViewService != null) {
+                accountOverviewViewService.notifyViewsOfPriceUpdate();
+            }
         } catch (Exception e) {
             log.error("Error processing price data: {}", priceJson, e);
         }

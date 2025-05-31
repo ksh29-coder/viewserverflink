@@ -2,9 +2,10 @@
 
 # Stop All Services
 # This script stops all running view server components
+# UPDATED FOR SEPARATED ARCHITECTURE: React UI (3000) + Backend (8080)
 
-echo "🛑 Stopping All Services"
-echo "========================"
+echo "🛑 Stopping All Services (Separated Architecture)"
+echo "=================================================="
 
 # Stop any Flink jobs if running
 if pgrep -f "UnifiedMarketValueJob" > /dev/null; then
@@ -13,31 +14,34 @@ if pgrep -f "UnifiedMarketValueJob" > /dev/null; then
     sleep 2
 fi
 
-# Stop React UI
+# Stop React UI (port 3000)
+echo "🔄 Stopping React UI Frontend (port 3000)..."
 if pgrep -f "npm run dev\|vite" > /dev/null; then
-    echo "🔄 Stopping React UI..."
+    echo "   └─ Stopping React development server..."
     pkill -f "npm run dev"
     pkill -f "vite"
     sleep 2
 fi
 
-# Stop mock data generator
+# Stop mock data generator (port 8081)
+echo "🔄 Stopping Mock Data Generator (port 8081)..."
 if pgrep -f "mock-data-generator" > /dev/null; then
-    echo "🔄 Stopping mock-data-generator..."
+    echo "   └─ Stopping mock data generator..."
     pkill -f "mock-data-generator"
     sleep 2
 fi
 
-# Stop view server
+# Stop view server (port 8080)
+echo "🔄 Stopping View Server Backend (port 8080)..."
 if pgrep -f "view-server" > /dev/null; then
-    echo "🔄 Stopping view-server..."
+    echo "   └─ Stopping view server..."
     pkill -f "view-server"
     sleep 2
 fi
 
 # Stop ViewServerApplication specifically
 if pgrep -f "ViewServerApplication" > /dev/null; then
-    echo "🔄 Stopping ViewServerApplication..."
+    echo "   └─ Stopping ViewServerApplication..."
     pkill -f "ViewServerApplication"
     sleep 2
 fi
@@ -57,18 +61,20 @@ if pgrep -f "com.viewserver" > /dev/null; then
 fi
 
 # Kill processes on specific ports if they're still running
+echo "🔧 Freeing ports..."
+
 if lsof -ti:3000 > /dev/null 2>&1; then
-    echo "🔧 Freeing port 3000..."
+    echo "   └─ Freeing port 3000 (React UI)..."
     lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 fi
 
 if lsof -ti:8080 > /dev/null 2>&1; then
-    echo "🔧 Freeing port 8080..."
+    echo "   └─ Freeing port 8080 (View Server)..."
     lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 fi
 
 if lsof -ti:8081 > /dev/null 2>&1; then
-    echo "🔧 Freeing port 8081..."
+    echo "   └─ Freeing port 8081 (Mock Data Generator)..."
     lsof -ti:8081 | xargs kill -9 2>/dev/null || true
 fi
 
@@ -88,22 +94,45 @@ else
     done
 fi
 
-# Check ports
+# Check ports (Separated Architecture)
+echo ""
+echo "🔌 Port Status (Separated Architecture):"
 PORTS_IN_USE=""
+
+# React UI (port 3000)
 if lsof -ti:3000 > /dev/null 2>&1; then
     PORTS_IN_USE="$PORTS_IN_USE 3000"
+    echo "  ⚠️  Port 3000 (React UI): Still in use"
+else
+    echo "  ✅ Port 3000 (React UI): Free"
 fi
+
+# View Server (port 8080)
 if lsof -ti:8080 > /dev/null 2>&1; then
     PORTS_IN_USE="$PORTS_IN_USE 8080"
+    echo "  ⚠️  Port 8080 (View Server): Still in use"
+else
+    echo "  ✅ Port 8080 (View Server): Free"
 fi
+
+# Mock Data Generator (port 8081)
 if lsof -ti:8081 > /dev/null 2>&1; then
     PORTS_IN_USE="$PORTS_IN_USE 8081"
+    echo "  ⚠️  Port 8081 (Mock Data Generator): Still in use"
+else
+    echo "  ✅ Port 8081 (Mock Data Generator): Free"
 fi
 
 if [ -z "$PORTS_IN_USE" ]; then
+    echo ""
     echo "✅ All application ports freed"
 else
-    echo "⚠️  Ports still in use:$PORTS_IN_USE"
+    echo ""
+    echo "⚠️  Some ports still in use:$PORTS_IN_USE"
+    echo "   If issues persist, you can manually kill processes:"
+    for port in $PORTS_IN_USE; do
+        echo "   lsof -ti:$port | xargs kill -9"
+    done
 fi
 
 echo ""
@@ -113,11 +142,18 @@ echo "📝 Infrastructure services (Kafka, Redis) are still running"
 echo "   To stop them: docker-compose down"
 echo ""
 echo "📄 Log files preserved:"
-echo "  - view-server-restart.log"
-echo "  - mock-data-generator.log"
-echo "  - react-ui-dev.log"
+echo "  - view-server.log (Backend API logs)"
+echo "  - mock-data-generator.log (Data generation logs)"
+echo "  - react-ui-dev.log (Frontend development logs)"
+echo ""
+echo "🔄 Architecture Status:"
+echo "  Frontend (React): localhost:3000 → STOPPED"
+echo "  Backend (Spring): localhost:8080 → STOPPED"
+echo "  Mock Generator: localhost:8081 → STOPPED"
 echo ""
 echo "🗑️  To purge Kafka data:"
 echo "  ./scripts/show-kafka-data.sh       (view current data)"
 echo "  ./scripts/purge-kafka-data.sh      (safe with confirmation)"
-echo "  ./scripts/quick-purge-kafka.sh     (fast for development)" 
+echo "  ./scripts/quick-purge-kafka.sh     (fast for development)"
+echo ""
+echo "🚀 To restart all services: ./scripts/start-all.sh" 

@@ -2,6 +2,18 @@ spring:
   application:
     name: view-server
   
+  # Jackson configuration for JSON processing
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+      fail-on-null-for-primitives: false
+      fail-on-numbers-for-enums: false
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+  
   # Redis configuration
   data:
     redis:
@@ -20,6 +32,19 @@ spring:
     resources:
       static-locations: classpath:/static/
       cache-period: 0
+
+  # Kafka configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: view-server
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
+      properties:
+        spring.json.trusted.packages: "*"
+      enable-auto-commit: true
+      auto-commit-interval: 1000
 
 # Server configuration
 server:
@@ -45,17 +70,4 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: always
-
-# Kafka consumer configuration
-kafka:
-  bootstrap-servers: localhost:9092
-  consumer:
-    group-id: view-server
-    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    auto-offset-reset: latest
-    properties:
-      spring.json.trusted.packages: "*"
-    enable-auto-commit: true
-    auto-commit-interval: 1000 
+      show-details: always 

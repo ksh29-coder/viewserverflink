@@ -22,7 +22,6 @@ import java.util.Set;
 @RequestMapping("/api")
 @Slf4j
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Allow React frontend access
 public class ViewServerController {
     
     private final CacheService cacheService;

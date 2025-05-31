@@ -283,7 +283,7 @@ public class UnifiedMarketValueJob {
             .setBootstrapServers(bootstrapServers)
             .setTopics(topic)
             .setGroupId(groupId)
-            .setStartingOffsets(OffsetsInitializer.latest())
+            .setStartingOffsets(OffsetsInitializer.earliest())
             .setValueOnlyDeserializer(new RobustStringDeserializer())
             .build();
     }

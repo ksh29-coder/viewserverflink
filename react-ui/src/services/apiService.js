@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-// Base URL for the View Server API
+// Base URL for the View Server API - now pointing to separate backend
 const BASE_URL = 'http://localhost:8080/api'
 
 // Create axios instance with default config
@@ -135,6 +135,42 @@ export const apiService = {
 
   async getDynamicDataStatus() {
     const response = await axios.get('http://localhost:8081/api/data-generation/dynamic/status')
+    return response.data
+  },
+
+  // Account Overview APIs
+  async createAccountOverviewView(request) {
+    const response = await api.post('/account-overview/views', request)
+    return response.data
+  },
+
+  async getActiveViews() {
+    const response = await api.get('/account-overview/views')
+    return response.data
+  },
+
+  async getViewData(viewId) {
+    const response = await api.get(`/account-overview/views/${viewId}/data`)
+    return response.data
+  },
+
+  async getViewConfig(viewId) {
+    const response = await api.get(`/account-overview/views/${viewId}/metadata`)
+    return response.data
+  },
+
+  async deleteView(viewId) {
+    const response = await api.delete(`/account-overview/views/${viewId}`)
+    return response.data
+  },
+
+  async getGroupByFields() {
+    const response = await api.get('/account-overview/groupby-fields')
+    return response.data
+  },
+
+  async getAccountOverviewHealth() {
+    const response = await api.get('/account-overview/health')
     return response.data
   }
 } 
