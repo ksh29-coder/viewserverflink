@@ -6,39 +6,55 @@ import 'ag-grid-community/styles/ag-theme-alpine.css'
 // CSS styles for cell flashing animations
 const cellFlashStyles = `
   .cell-flash-green {
-    animation: flashGreen 1.5s ease-out;
+    animation: flashGreen 2.5s ease-out;
   }
   
   .cell-flash-red {
-    animation: flashRed 1.5s ease-out;
+    animation: flashRed 2.5s ease-out;
   }
   
   .cell-flash-blue {
-    animation: flashBlue 1.5s ease-out;
+    animation: flashBlue 2.5s ease-out;
+  }
+  
+  .cell-flash-orange {
+    animation: flashOrange 2.5s ease-out;
   }
   
   @keyframes flashGreen {
-    0% { background-color: #d4edda; }
-    25% { background-color: #c3e6cb; }
-    50% { background-color: #b1dfbb; }
-    75% { background-color: #c3e6cb; }
-    100% { background-color: transparent; }
+    0% { background-color: #28a745; color: white; box-shadow: 0 0 10px rgba(40, 167, 69, 0.7); }
+    15% { background-color: #34ce57; color: white; box-shadow: 0 0 15px rgba(40, 167, 69, 0.9); }
+    30% { background-color: #d4edda; color: #155724; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+    60% { background-color: #c3e6cb; color: #155724; }
+    80% { background-color: #e8f5e8; color: #333; }
+    100% { background-color: transparent; color: inherit; box-shadow: none; }
   }
   
   @keyframes flashRed {
-    0% { background-color: #f8d7da; }
-    25% { background-color: #f5c6cb; }
-    50% { background-color: #f1b0b7; }
-    75% { background-color: #f5c6cb; }
-    100% { background-color: transparent; }
+    0% { background-color: #dc3545; color: white; box-shadow: 0 0 10px rgba(220, 53, 69, 0.7); }
+    15% { background-color: #e74c3c; color: white; box-shadow: 0 0 15px rgba(220, 53, 69, 0.9); }
+    30% { background-color: #f8d7da; color: #721c24; box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
+    60% { background-color: #f5c6cb; color: #721c24; }
+    80% { background-color: #fdf2f2; color: #333; }
+    100% { background-color: transparent; color: inherit; box-shadow: none; }
   }
   
   @keyframes flashBlue {
-    0% { background-color: #d1ecf1; }
-    25% { background-color: #bee5eb; }
-    50% { background-color: #abdde5; }
-    75% { background-color: #bee5eb; }
-    100% { background-color: transparent; }
+    0% { background-color: #007bff; color: white; box-shadow: 0 0 10px rgba(0, 123, 255, 0.7); }
+    15% { background-color: #0056b3; color: white; box-shadow: 0 0 15px rgba(0, 123, 255, 0.9); }
+    30% { background-color: #d1ecf1; color: #0c5460; box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); }
+    60% { background-color: #bee5eb; color: #0c5460; }
+    80% { background-color: #e6f3ff; color: #333; }
+    100% { background-color: transparent; color: inherit; box-shadow: none; }
+  }
+  
+  @keyframes flashOrange {
+    0% { background-color: #fd7e14; color: white; box-shadow: 0 0 10px rgba(253, 126, 20, 0.7); }
+    15% { background-color: #e8590c; color: white; box-shadow: 0 0 15px rgba(253, 126, 20, 0.9); }
+    30% { background-color: #ffeaa7; color: #856404; box-shadow: 0 0 5px rgba(253, 126, 20, 0.5); }
+    60% { background-color: #fde68a; color: #856404; }
+    80% { background-color: #fef3e2; color: #333; }
+    100% { background-color: transparent; color: inherit; box-shadow: none; }
   }
 `;
 
@@ -113,13 +129,36 @@ const DynamicGrid = ({ data = [], groupByFields = [], exposureTypes = [], loadin
   // Function to determine flash color based on change type
   const getFlashColor = (fieldName, oldValue, newValue) => {
     try {
-      // For NAV fields, use green for increases, red for decreases
-      if (fieldName && (fieldName.includes('Nav') || fieldName.includes('marketValue'))) {
+      // For NAV fields and market values, use green for increases, red for decreases
+      if (fieldName && (fieldName.includes('Nav') || fieldName.includes('marketValue') || fieldName.includes('MarketValue'))) {
         const oldNum = parseFloat(oldValue) || 0;
         const newNum = parseFloat(newValue) || 0;
         if (newNum > oldNum) return 'green'
         if (newNum < oldNum) return 'red'
+        return 'blue' // Same value but still a change
       }
+      
+      // For timestamp fields, use orange
+      if (fieldName && (fieldName.includes('Updated') || fieldName.includes('timestamp') || fieldName.includes('Time'))) {
+        return 'orange'
+      }
+      
+      // For order status changes, use specific colors
+      if (fieldName && fieldName.includes('orderStatus')) {
+        if (newValue === 'FILLED') return 'green'
+        if (newValue === 'CANCELLED') return 'red'
+        return 'orange'
+      }
+      
+      // For quantity or position changes
+      if (fieldName && (fieldName.includes('quantity') || fieldName.includes('position') || fieldName.includes('Position'))) {
+        const oldNum = parseFloat(oldValue) || 0;
+        const newNum = parseFloat(newValue) || 0;
+        if (newNum > oldNum) return 'green'
+        if (newNum < oldNum) return 'red'
+        return 'blue'
+      }
+      
       // For other fields, use blue for general changes
       return 'blue'
     } catch (error) {
@@ -344,7 +383,7 @@ const DynamicGrid = ({ data = [], groupByFields = [], exposureTypes = [], loadin
                     } catch (error) {
                       console.warn('Error removing flash:', error);
                     }
-                  }, 1500)
+                  }, 2700)
                 }
               } catch (error) {
                 console.warn('Error processing field change:', error);
@@ -375,7 +414,7 @@ const DynamicGrid = ({ data = [], groupByFields = [], exposureTypes = [], loadin
                       } catch (error) {
                         console.warn('Error removing grouping flash:', error);
                       }
-                    }, 1500)
+                    }, 2700)
                   }
                 } catch (error) {
                   console.warn('Error processing grouping field change:', error);
@@ -562,6 +601,9 @@ const DynamicGrid = ({ data = [], groupByFields = [], exposureTypes = [], loadin
         </span>
         <span style={{ marginLeft: '6px', padding: '2px 6px', backgroundColor: '#d1ecf1', borderRadius: '3px' }}>
           Blue = Other Changes
+        </span>
+        <span style={{ marginLeft: '6px', padding: '2px 6px', backgroundColor: '#ffeaa7', borderRadius: '3px' }}>
+          Orange = Time/Status Updates
         </span>
       </div>
 

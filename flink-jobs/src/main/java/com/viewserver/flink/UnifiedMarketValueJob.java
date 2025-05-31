@@ -79,28 +79,28 @@ public class UnifiedMarketValueJob {
         // ==================== CREATE KAFKA SOURCES ====================
         
         // Holdings source (daily updates)
-        KafkaSource<String> holdingsSource = createKafkaSource(
+        KafkaSource<String> holdingsSource = createStaticKafkaSource(
             kafkaBootstrapServers, 
             "base.sod-holding", 
             consumerGroupId + "-holdings"
         );
         
         // Orders source (order events)
-        KafkaSource<String> ordersSource = createKafkaSource(
+        KafkaSource<String> ordersSource = createStaticKafkaSource(
             kafkaBootstrapServers, 
             "base.order-events", 
             consumerGroupId + "-orders"
         );
         
         // Instruments source (static data)
-        KafkaSource<String> instrumentsSource = createKafkaSource(
+        KafkaSource<String> instrumentsSource = createStaticKafkaSource(
             kafkaBootstrapServers, 
             "base.instrument", 
             consumerGroupId + "-instruments"
         );
         
         // Prices source (every 5 seconds)
-        KafkaSource<String> pricesSource = createKafkaSource(
+        KafkaSource<String> pricesSource = createDynamicKafkaSource(
             kafkaBootstrapServers, 
             "base.price", 
             consumerGroupId + "-prices"
@@ -276,14 +276,29 @@ public class UnifiedMarketValueJob {
     }
     
     /**
-     * Create a Kafka source with robust deserialization
+     * Create a Kafka source for STATIC data with earliest offsets
+     * Used for: holdings, orders, instruments (need all existing data)
      */
-    private static KafkaSource<String> createKafkaSource(String bootstrapServers, String topic, String groupId) {
+    private static KafkaSource<String> createStaticKafkaSource(String bootstrapServers, String topic, String groupId) {
         return KafkaSource.<String>builder()
             .setBootstrapServers(bootstrapServers)
             .setTopics(topic)
             .setGroupId(groupId)
-            .setStartingOffsets(OffsetsInitializer.earliest())
+            .setStartingOffsets(OffsetsInitializer.earliest()) // Read all existing static data
+            .setValueOnlyDeserializer(new RobustStringDeserializer())
+            .build();
+    }
+    
+    /**
+     * Create a Kafka source for DYNAMIC data with latest offsets
+     * Used for: prices (only need current/new updates)
+     */
+    private static KafkaSource<String> createDynamicKafkaSource(String bootstrapServers, String topic, String groupId) {
+        return KafkaSource.<String>builder()
+            .setBootstrapServers(bootstrapServers)
+            .setTopics(topic)
+            .setGroupId(groupId)
+            .setStartingOffsets(OffsetsInitializer.latest()) // Read only new dynamic data
             .setValueOnlyDeserializer(new RobustStringDeserializer())
             .build();
     }
